@@ -214,7 +214,7 @@ import (
 	primary           "PRIMARY"
 	procedure         "PROCEDURE"
 	rangeKwd          "RANGE"
-	rank              "RANK"
+	rank              "TIDB_RANK"
 	read              "READ"
 	realType          "REAL"
 	recursive         "RECURSIVE"
@@ -8586,7 +8586,7 @@ WindowFuncCall:
 	{
 		$$ = &ast.WindowFuncExpr{F: $1, Spec: $4.(ast.WindowSpec)}
 	}
-|	"RANK" '(' ')' WindowingClause
+|	"TIDB_RANK" '(' ')' WindowingClause
 	{
 		$$ = &ast.WindowFuncExpr{F: $1, Spec: $4.(ast.WindowSpec)}
 	}
