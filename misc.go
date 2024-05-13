@@ -353,6 +353,7 @@ var tokenMap = map[string]int{
 	"FUNCTION":                 function,
 	"GENERAL":                  general,
 	"GENERATED":                generated,
+	"GEOMETRY":                 geometryType,
 	"GET_FORMAT":               getFormat,
 	"GLOBAL":                   global,
 	"GRANT":                    grant,

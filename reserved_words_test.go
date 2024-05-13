@@ -11,15 +11,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//+build reserved_words_test
+//go:build reserved_words_test
+// +build reserved_words_test
 
 // This file ensures that the set of reserved keywords is the same as that of
 // MySQL. To run:
 //
 //  1. Set up a MySQL server listening at 127.0.0.1:3306 using root and no password
+//
 //  2. Run this test with:
 //
-//		go test -tags reserved_words_test -check.f TestReservedWords
+//     go test -tags reserved_words_test -check.f TestReservedWords
 package parser
 
 import (

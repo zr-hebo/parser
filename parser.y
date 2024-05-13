@@ -138,6 +138,7 @@ import (
 	from              "FROM"
 	fulltext          "FULLTEXT"
 	generated         "GENERATED"
+	geometryType      "GEOMETRY"
 	grant             "GRANT"
 	group             "GROUP"
 	groups            "GROUPS"
@@ -5889,6 +5890,7 @@ UnReservedKeyword:
 |	"DELAY_KEY_WRITE"
 |	"ISOLATION"
 |	"JSON"
+|	"GEOMETRY"
 |	"REPEATABLE"
 |	"RESPECT"
 |	"COMMITTED"
@@ -11714,6 +11716,14 @@ StringType:
 |	"JSON"
 	{
 		x := types.NewFieldType(mysql.TypeJSON)
+		x.Decimal = 0
+		x.Charset = charset.CharsetBin
+		x.Collate = charset.CollationBin
+		$$ = x
+	}
+|	"GEOMETRY"
+	{
+		x := types.NewFieldType(mysql.TypeGeometry)
 		x.Decimal = 0
 		x.Charset = charset.CharsetBin
 		x.Collate = charset.CollationBin
