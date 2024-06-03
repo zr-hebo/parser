@@ -1683,9 +1683,10 @@ type StatisticsSpec struct {
 
 // CreateStatisticsStmt is a statement to create extended statistics.
 // Examples:
-//   CREATE STATISTICS stats1 (cardinality) ON t(a, b, c);
-//   CREATE STATISTICS stats2 (dependency) ON t(a, b);
-//   CREATE STATISTICS stats3 (correlation) ON t(a, b);
+//
+//	CREATE STATISTICS stats1 (cardinality) ON t(a, b, c);
+//	CREATE STATISTICS stats2 (dependency) ON t(a, b);
+//	CREATE STATISTICS stats3 (correlation) ON t(a, b);
 type CreateStatisticsStmt struct {
 	stmtNode
 
@@ -1753,7 +1754,8 @@ func (n *CreateStatisticsStmt) Accept(v Visitor) (Node, bool) {
 
 // DropStatisticsStmt is a statement to drop extended statistics.
 // Examples:
-//   DROP STATISTICS stats1;
+//
+//	DROP STATISTICS stats1;
 type DropStatisticsStmt struct {
 	stmtNode
 
@@ -1874,6 +1876,7 @@ const (
 )
 
 // ShowSlow is used for the following command:
+//
 //	admin show slow top [ internal | all] N
 //	admin show slow recent N
 type ShowSlow struct {
