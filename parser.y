@@ -3223,7 +3223,7 @@ ConstraintElem:
 |	"SPATIAL" KeyOrIndexOpt IndexName '(' IndexPartSpecificationList ')' IndexOptionList
 	{
 		c := &ast.Constraint{
-			Tp:           ast.ConstraintFulltext,
+			Tp:           ast.ConstraintSPATIAL,
 			Keys:         $5.([]*ast.IndexPartSpecification),
 			Name:         $3.(*ast.NullString).String,
 			IsEmptyIndex: $3.(*ast.NullString).Empty,
