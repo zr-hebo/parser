@@ -6442,7 +6442,13 @@ func (g *gbkEncodingChecker) Leave(n ast.Node) (node ast.Node, ok bool) {
 
 func Test_ParseGeometry(t *testing.T) {
 	p := parser.New()
-	src := "create table t1(a GEOMETRY);"
-	_, err := p.ParseOneStmt(src, "", "")
+	src := "CREATE TABLE `gis_table` (  `id` bigint NOT NULL, `gis` geometry NOT NULL COMMENT '空间位置信息',  PRIMARY KEY (`id`),  SPATIAL KEY `gis_index` (`gis`))"
+	stmt, err := p.ParseOneStmt(src, "", "")
 	assert.ErrorIs(t, err, nil)
+	fmt.Println(stmt.Text())
+	// writer := &strings.Builder{}
+	// restoreCtx := format.NewRestoreCtx(
+	// 	format.RestoreStringSingleQuotes|format.RestoreKeyWordUppercase|format.RestoreNameBackQuotes, writer)
+	// stmt.Restore(restoreCtx)
+	// fmt.Println(writer.String())
 }
