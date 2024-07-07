@@ -153,6 +153,7 @@ import (
 	index             "INDEX"
 	infile            "INFILE"
 	inner             "INNER"
+	arrayType  		  "ARRAY"
 	integerType       "INTEGER"
 	intersect         "INTERSECT"
 	interval          "INTERVAL"
@@ -7823,6 +7824,14 @@ CastType:
 		x.Charset = charset.CharsetBin
 		x.Collate = charset.CollationBin
 		x.Flag |= mysql.BinaryFlag
+		$$ = x
+	}
+|	"UNSIGNED" "ARRAY"
+	{
+		x := types.NewFieldType(mysql.TypeLonglongArray)
+		x.Flag |= mysql.UnsignedFlag | mysql.BinaryFlag
+		x.Charset = charset.CharsetBin
+		x.Collate = charset.CollationBin
 		$$ = x
 	}
 |	"UNSIGNED" OptInteger
