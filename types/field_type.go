@@ -326,6 +326,12 @@ func (ft *FieldType) RestoreAsCastType(ctx *format.RestoreCtx, explicitCharset b
 		} else {
 			ctx.WriteKeyWord("SIGNED")
 		}
+	case mysql.TypeLonglongArray:
+		if ft.Flag&mysql.UnsignedFlag != 0 {
+			ctx.WriteKeyWord("UNSIGNED ARRAY")
+		} else {
+			ctx.WriteKeyWord("SIGNED ARRAY")
+		}
 	case mysql.TypeJSON:
 		ctx.WriteKeyWord("JSON")
 	case mysql.TypeDouble:
