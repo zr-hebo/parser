@@ -34,8 +34,7 @@ const (
 	TypeVarchar  byte = 15
 	TypeBit      byte = 16
 
-	TypeArray         byte = 17
-	TypeLonglongArray byte = 18
+	TypeArray byte = 17
 
 	TypeJSON       byte = 0xf5
 	TypeNewDecimal byte = 0xf6

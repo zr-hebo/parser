@@ -7826,14 +7826,6 @@ CastType:
 		x.Flag |= mysql.BinaryFlag
 		$$ = x
 	}
-|	"UNSIGNED" "ARRAY"
-	{
-		x := types.NewFieldType(mysql.TypeLonglongArray)
-		x.Flag |= mysql.UnsignedFlag | mysql.BinaryFlag
-		x.Charset = charset.CharsetBin
-		x.Collate = charset.CollationBin
-		$$ = x
-	}
 |	"UNSIGNED" OptInteger
 	{
 		x := types.NewFieldType(mysql.TypeLonglong)
@@ -7886,6 +7878,13 @@ CastType:
 		x.Flag |= mysql.BinaryFlag
 		x.Charset = charset.CharsetBin
 		x.Collate = charset.CollationBin
+		$$ = x
+	}
+|  CastType "ARRAY"
+	{
+		ctype := $1.(*types.FieldType)
+		x := types.NewFieldType(mysql.TypeArray)
+		x.ElemTp = ctype
 		$$ = x
 	}
 
