@@ -1031,6 +1031,7 @@ import (
 	IndexHintScope                         "index hint scope"
 	IndexHintType                          "index hint type"
 	IndexInvisible                         "index visible/invisible"
+	ColumnVisibleOption                    "column visible option"
 	IndexKeyTypeOpt                        "index key type"
 	IndexLockAndAlgorithmOpt               "index lock and algorithm"
 	IndexNameAndTypeOpt                    "index name and index type"
@@ -3126,6 +3127,20 @@ ColumnOption:
 |	"AUTO_RANDOM" OptFieldLen
 	{
 		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionAutoRandom, AutoRandomBitLength: $2.(int)}
+	}
+|	ColumnVisibleOption
+	{
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionVisible, Visible: $1.(bool)}
+	}
+
+ColumnVisibleOption:
+	"VISIBLE"
+	{
+		$$ = true
+	}
+|	"INVISIBLE"
+	{
+		$$ = false
 	}
 
 StorageMedia:
