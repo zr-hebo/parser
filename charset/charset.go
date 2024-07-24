@@ -64,14 +64,15 @@ var charsetInfos = map[string]*Charset{
 
 // All the names supported collations should be in the following table.
 var supportedCollationNames = map[string]struct{}{
-	CollationUTF8:    {},
-	CollationUTF8MB3: {},
-	CollationUTF8MB4: {},
-	CollationUTF16:   {},
-	CollationUTF32:   {},
-	CollationASCII:   {},
-	CollationLatin1:  {},
-	CollationBin:     {},
+	CollationUTF8:               {},
+	CollationUTF8MB3:            {},
+	CollationUTF8MB3_GENERAL_CI: {},
+	CollationUTF8MB4:            {},
+	CollationUTF16:              {},
+	CollationUTF32:              {},
+	CollationASCII:              {},
+	CollationLatin1:             {},
+	CollationBin:                {},
 }
 
 // GetSupportedCharsets gets descriptions for all charsets supported so far.
@@ -198,6 +199,8 @@ const (
 	CharsetUTF8MB3 = "utf8mb3"
 	// CollationUTF8MB3 is the default collation for CharsetUTF8MB3.
 	CollationUTF8MB3 = "utf8mb3_bin"
+	// CollationUTF8MB3_GENERAL_CI collation for CharsetUTF8MB3.
+	CollationUTF8MB3_GENERAL_CI = "utf8mb3_general_ci"
 	// CharsetASCII is a subset of UTF8.
 	CharsetASCII = "ascii"
 	// CollationASCII is the default collation for CharsetACSII.
@@ -297,7 +300,6 @@ var collations = []*Collation{
 	{43, "macce", "macce_bin", false},
 	{44, "cp1250", "cp1250_croatian_ci", false},
 	{45, "utf8mb4", "utf8mb4_general_ci", false},
-	{46, "utf8mb3", "utf8mb3_bin", true},
 	{46, "utf8mb4", "utf8mb4_bin", true},
 	{47, "latin1", "latin1_bin", true},
 	{48, "latin1", "latin1_general_ci", false},
@@ -475,6 +477,8 @@ var collations = []*Collation{
 	{247, "utf8mb4", "utf8mb4_vietnamese_ci", false},
 	{255, "utf8mb4", "utf8mb4_0900_ai_ci", false},
 	{2048, "utf8mb4", "utf8mb4_zh_pinyin_tidb_as_cs", false},
+	{3072, "utf8mb3", "utf8mb3_bin", true},
+	{3073, "utf8mb3", "utf8mb3_general_ci", false},
 }
 
 // AddCharset adds a new charset.

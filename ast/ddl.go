@@ -232,6 +232,7 @@ type IndexPartSpecification struct {
 	Column *ColumnName
 	Length int
 	Expr   ExprNode
+	Desc   bool
 }
 
 // Restore implements Node interface.
@@ -249,6 +250,9 @@ func (n *IndexPartSpecification) Restore(ctx *format.RestoreCtx) error {
 	}
 	if n.Length > 0 {
 		ctx.WritePlainf("(%d)", n.Length)
+	}
+	if n.Desc {
+		ctx.WritePlainf(" DESC")
 	}
 	return nil
 }
@@ -483,6 +487,7 @@ const (
 	ColumnOptionColumnFormat
 	ColumnOptionStorage
 	ColumnOptionAutoRandom
+	ColumnOptionVisible
 )
 
 var (
@@ -513,6 +518,7 @@ type ColumnOption struct {
 	// Name is only used for Check Constraint name.
 	ConstraintName string
 	PrimaryKeyTp   model.PrimaryKeyType
+	Visible        bool
 }
 
 // Restore implements Node interface.
@@ -606,6 +612,12 @@ func (n *ColumnOption) Restore(ctx *format.RestoreCtx) error {
 				ctx.WritePlainf("(%d)", n.AutoRandomBitLength)
 			}
 		})
+	case ColumnOptionVisible:
+		if n.Visible {
+			ctx.WriteKeyWord("VISIBLE")
+		} else {
+			ctx.WriteKeyWord("INVISIBLE")
+		}
 	default:
 		return errors.New("An error occurred while splicing ColumnOption")
 	}
