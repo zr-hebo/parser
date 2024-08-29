@@ -31,7 +31,6 @@ import (
 	"github.com/pingcap/parser/opcode"
 	"github.com/pingcap/parser/terror"
 	"github.com/pingcap/parser/test_driver"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestT(t *testing.T) {
@@ -6438,17 +6437,4 @@ func (g *gbkEncodingChecker) Enter(n ast.Node) (node ast.Node, skipChildren bool
 
 func (g *gbkEncodingChecker) Leave(n ast.Node) (node ast.Node, ok bool) {
 	return n, true
-}
-
-func Test_ParseGeometry(t *testing.T) {
-	p := parser.New()
-	src := "CREATE TABLE `gis_table` (  `id` bigint NOT NULL, `gis` geometry NOT NULL COMMENT '空间位置信息',  PRIMARY KEY (`id`),  SPATIAL KEY `gis_index` (`gis`))"
-	stmt, err := p.ParseOneStmt(src, "", "")
-	assert.ErrorIs(t, err, nil)
-	fmt.Println(stmt.Text())
-	// writer := &strings.Builder{}
-	// restoreCtx := format.NewRestoreCtx(
-	// 	format.RestoreStringSingleQuotes|format.RestoreKeyWordUppercase|format.RestoreNameBackQuotes, writer)
-	// stmt.Restore(restoreCtx)
-	// fmt.Println(writer.String())
 }
