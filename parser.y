@@ -167,6 +167,9 @@ import (
 	int4Type          "INT4"
 	int8Type          "INT8"
 	join              "JOIN"
+	jsonArray         "JSON_ARRAY"
+	jsonObject        "JSON_OBJECT"
+	jsonQuote         "JSON_QUOTE"
 	key               "KEY"
 	keys              "KEYS"
 	kill              "KILL"
@@ -425,6 +428,8 @@ import (
 	isolation             "ISOLATION"
 	issuer                "ISSUER"
 	jsonType              "JSON"
+	jsonObject            "JSONObject"
+	jsonArray             "JSONArray"
 	keyBlockSize          "KEY_BLOCK_SIZE"
 	labels                "LABELS"
 	language              "LANGUAGE"
@@ -801,35 +806,39 @@ import (
 
 %token not2
 %type	<expr>
-	Expression             "expression"
-	MaxValueOrExpression   "maxvalue or expression"
-	BoolPri                "boolean primary expression"
-	ExprOrDefault          "expression or default"
-	PredicateExpr          "Predicate expression factor"
-	SetExpr                "Set variable statement value's expression"
-	BitExpr                "bit expression"
-	SimpleExpr             "simple expression"
-	SimpleIdent            "Simple Identifier expression"
-	SumExpr                "aggregate functions"
-	FunctionCallGeneric    "Function call with Identifier"
-	FunctionCallKeyword    "Function call with keyword as function name"
-	FunctionCallNonKeyword "Function call with nonkeyword as function name"
-	Literal                "literal value"
-	Variable               "User or system variable"
-	SystemVariable         "System defined variable name"
-	UserVariable           "User defined variable name"
-	SubSelect              "Sub Select"
-	StringLiteral          "text literal"
-	ExpressionOpt          "Optional expression"
-	SignedLiteral          "Literal or NumLiteral with sign"
-	DefaultValueExpr       "DefaultValueExpr(Now or Signed Literal)"
-	NowSymOptionFraction   "NowSym with optional fraction part"
-	CharsetNameOrDefault   "Character set name or default"
-	NextValueForSequence   "Default nextval expression"
-	FunctionNameSequence   "Function with sequence function call"
-	WindowFuncCall         "WINDOW function call"
-	RepeatableOpt          "Repeatable optional in sample clause"
-	ProcedureCall          "Procedure call with Identifier or identifier"
+	Expression                    "expression"
+	MaxValueOrExpression          "maxvalue or expression"
+	BoolPri                       "boolean primary expression"
+	ExprOrDefault                 "expression or default"
+	PredicateExpr                 "Predicate expression factor"
+	SetExpr                       "Set variable statement value's expression"
+	BitExpr                       "bit expression"
+	SimpleExpr                    "simple expression"
+	SimpleIdent                   "Simple Identifier expression"
+	SumExpr                       "aggregate functions"
+	FunctionCallGeneric           "Function call with Identifier"
+	FunctionCallKeyword           "Function call with keyword as function name"
+	FunctionCallNonKeyword        "Function call with nonkeyword as function name"
+	Literal                       "literal value"
+	Variable                      "User or system variable"
+	SystemVariable                "System defined variable name"
+	UserVariable                  "User defined variable name"
+	SubSelect                     "Sub Select"
+	StringLiteral                 "text literal"
+	ExpressionOpt                 "Optional expression"
+	SignedLiteral                 "Literal or NumLiteral with sign"
+	DefaultValueExpr              "DefaultValueExpr(Now or Signed Literal)"
+	DefaultValueExprInParentheses "default value in parentheses"
+	NowSymOptionFraction          "NowSym with optional fraction part"
+	CharsetNameOrDefault          "Character set name or default"
+	NextValueForSequence          "Default nextval expression"
+	FunctionNameSequence          "Function with sequence function call"
+	WindowFuncCall                "WINDOW function call"
+	RepeatableOpt                 "Repeatable optional in sample clause"
+	ProcedureCall                 "Procedure call with Identifier or identifier"
+	JSONQuoteExpr                 "JSON quote Expr"
+	JSONArrayExpr                 "JSON array Expr"
+	JSONObjectExpr                "JSON object Expr"
 
 %type	<statement>
 	AdminStmt                  "Check table statement or show ddl statement"
@@ -3049,6 +3058,10 @@ ColumnOption:
 	{
 		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionDefaultValue, Expr: $2}
 	}
+|	"DEFAULT" '(' DefaultValueExprInParentheses ')'
+	{
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionDefaultValue, Expr: $3}
+	}
 |	"SERIAL" "DEFAULT" "VALUE"
 	{
 		$$ = []*ast.ColumnOption{{Tp: ast.ColumnOptionNotNull}, {Tp: ast.ColumnOptionAutoIncrement}, {Tp: ast.ColumnOptionUniqKey}}
@@ -3404,6 +3417,31 @@ DefaultValueExpr:
 	NowSymOptionFraction
 |	SignedLiteral
 |	NextValueForSequence
+
+DefaultValueExprInParentheses:
+	JSONObjectExpr
+|	JSONArrayExpr
+|	JSONQuoteExpr
+|	NowSymOptionFraction
+|	SignedLiteral
+
+JSONQuoteExpr:
+	"JSON_QUOTE" '(' stringLit ')'
+	{
+		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_QUOTE"), Args: []ast.ExprNode{ast.NewValueExpr($3, parser.charset, parser.collation)}}
+	}
+
+JSONObjectExpr:
+	"JSON_OBJECT" '(' ValuesOpt ')'
+	{
+		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_OBJECT"), Args: $3.([]ast.ExprNode)}
+	}
+
+JSONArrayExpr:
+	"JSON_ARRAY" '(' ValuesOpt ')'
+	{
+		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_ARRAY"), Args: $3.([]ast.ExprNode)}
+	}
 
 NowSymOptionFraction:
 	NowSym
