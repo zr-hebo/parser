@@ -153,6 +153,7 @@ import (
 	index             "INDEX"
 	infile            "INFILE"
 	inner             "INNER"
+	arrayType  		  "ARRAY"
 	integerType       "INTEGER"
 	intersect         "INTERSECT"
 	interval          "INTERVAL"
@@ -1039,6 +1040,7 @@ import (
 	IndexHintScope                         "index hint scope"
 	IndexHintType                          "index hint type"
 	IndexInvisible                         "index visible/invisible"
+	ColumnVisibleOption                    "column visible option"
 	IndexKeyTypeOpt                        "index key type"
 	IndexLockAndAlgorithmOpt               "index lock and algorithm"
 	IndexNameAndTypeOpt                    "index name and index type"
@@ -3139,6 +3141,20 @@ ColumnOption:
 	{
 		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionAutoRandom, AutoRandomBitLength: $2.(int)}
 	}
+|	ColumnVisibleOption
+	{
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionVisible, Visible: $1.(bool)}
+	}
+
+ColumnVisibleOption:
+	"VISIBLE"
+	{
+		$$ = true
+	}
+|	"INVISIBLE"
+	{
+		$$ = false
+	}
 
 StorageMedia:
 	"DEFAULT"
@@ -3632,11 +3648,11 @@ IndexPartSpecification:
 	ColumnName OptFieldLen OptOrder
 	{
 		// Order is parsed but just ignored as MySQL did.
-		$$ = &ast.IndexPartSpecification{Column: $1.(*ast.ColumnName), Length: $2.(int)}
+		$$ = &ast.IndexPartSpecification{Column: $1.(*ast.ColumnName), Length: $2.(int), Desc: $3.(bool)}
 	}
 |	'(' Expression ')' OptOrder
 	{
-		$$ = &ast.IndexPartSpecification{Expr: $2}
+		$$ = &ast.IndexPartSpecification{Expr: $2, Desc: $4.(bool)}
 	}
 
 IndexLockAndAlgorithmOpt:
@@ -6589,7 +6605,7 @@ Literal:
 StringLiteral:
 	stringLit
 	{
-		expr := ast.NewValueExpr($1, parser.charset, parser.collation)
+		expr := ast.NewValueExpr($1, "", "")
 		$$ = expr
 	}
 |	StringLiteral stringLit
@@ -6963,7 +6979,7 @@ SimpleExpr:
 	}
 |	SimpleIdent jss stringLit
 	{
-		expr := ast.NewValueExpr($3, parser.charset, parser.collation)
+		expr := ast.NewValueExpr($3, "", "")
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr(ast.JSONExtract), Args: []ast.ExprNode{$1, expr}}
 	}
 |	SimpleIdent juss stringLit
@@ -7915,6 +7931,13 @@ CastType:
 		x.Flag |= mysql.BinaryFlag
 		x.Charset = charset.CharsetBin
 		x.Collate = charset.CollationBin
+		$$ = x
+	}
+|  CastType "ARRAY"
+	{
+		ctype := $1.(*types.FieldType)
+		x := types.NewFieldType(mysql.TypeArray)
+		x.ElemTp = ctype
 		$$ = x
 	}
 
