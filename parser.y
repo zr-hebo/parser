@@ -829,7 +829,6 @@ import (
 	ExpressionOpt                 "Optional expression"
 	SignedLiteral                 "Literal or NumLiteral with sign"
 	DefaultValueExpr              "DefaultValueExpr(Now or Signed Literal)"
-	DefaultValueExprInParentheses "default value in parentheses"
 	NowSymOptionFraction          "NowSym with optional fraction part"
 	CharsetNameOrDefault          "Character set name or default"
 	NextValueForSequence          "Default nextval expression"
@@ -3060,9 +3059,9 @@ ColumnOption:
 	{
 		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionDefaultValue, Expr: $2}
 	}
-|	"DEFAULT" '(' DefaultValueExprInParentheses ')'
+|	"DEFAULT" '(' DefaultValueExpr ')'
 	{
-		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionDefaultValue, Expr: $3}
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionDefaultValue, Expr: &ast.ParenthesesExpr{Expr: $3}}
 	}
 |	"SERIAL" "DEFAULT" "VALUE"
 	{
@@ -3436,13 +3435,6 @@ DefaultValueExpr:
 |	JSONObjectExpr
 |	JSONArrayExpr
 |	JSONQuoteExpr
-
-DefaultValueExprInParentheses:
-	JSONObjectExpr
-|	JSONArrayExpr
-|	JSONQuoteExpr
-|	NowSymOptionFraction
-|	SignedLiteral
 
 JSONQuoteExpr:
 	"JSON_QUOTE" '(' stringLit ')'
