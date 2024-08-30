@@ -76,11 +76,11 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 			name: "JSON_OBJECT with param check",
 			args: args{
 				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT (" +
-					"JSON_OBJECT('haha', 1)) COMMENT 'product_outsource_details', " +
+					"JSON_OBJECT(_utf8mb4'id',87,_utf8mb4'name',_utf8mb4'carrot')) COMMENT 'product_outsource_details', " +
 					"PRIMARY KEY (`id`))",
 			},
 			wantNewSQL: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT (" +
-				"JSON_OBJECT('haha', 1)) COMMENT 'product_outsource_details', " +
+				"JSON_OBJECT(_utf8mb4'id',87,_utf8mb4'name',_utf8mb4'carrot')) COMMENT 'product_outsource_details', " +
 				"PRIMARY KEY (`id`))",
 			wantErr: false,
 		},
@@ -94,6 +94,20 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 			},
 			wantNewSQL: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, " +
 				"outsource_details json NOT NULL DEFAULT (JSON_ARRAY()) " +
+				"COMMENT 'product_outsource_details', " +
+				"PRIMARY KEY (`id`))",
+			wantErr: false,
+		},
+		{
+			name: "JSON_ARRAY check with param check",
+			args: args{
+				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, " +
+					"outsource_details json NOT NULL DEFAULT (JSON_ARRAY(1,2,3)) " +
+					"COMMENT 'product_outsource_details', " +
+					"PRIMARY KEY (`id`))",
+			},
+			wantNewSQL: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, " +
+				"outsource_details json NOT NULL DEFAULT (JSON_ARRAY(1,2,3)) " +
 				"COMMENT 'product_outsource_details', " +
 				"PRIMARY KEY (`id`))",
 			wantErr: false,
