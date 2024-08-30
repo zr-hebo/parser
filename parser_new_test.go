@@ -136,6 +136,16 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT (JSON_QUOTE(_UTF8MB4'haha')) COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
 			wantErr:    false,
 		},
+		{
+			name: "JSON_QUOTE in parentheses check",
+			args: args{
+				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT (" +
+					"JSON_QUOTE(_UTF8MB4'haha')) COMMENT 'product_outsource_details', " +
+					"PRIMARY KEY (`id`))",
+			},
+			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT (JSON_QUOTE(_UTF8MB4'haha')) COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
+			wantErr:    false,
+		},
 	}
 
 	sqlParser := New()

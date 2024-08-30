@@ -3441,6 +3441,23 @@ JSONQuoteExpr:
 	{
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_QUOTE"), Args: []ast.ExprNode{ast.NewValueExpr($3, parser.charset, parser.collation)}}
 	}
+| "JSON_QUOTE" '(' "UNDERSCORE_CHARSET" stringLit ')'
+  	{
+  		// See https://dev.mysql.com/doc/refman/5.7/en/charset-literal.html
+  		co, err := charset.GetDefaultCollationLegacy($3)
+  		if err != nil {
+  			yylex.AppendError(ast.ErrUnknownCharacterSet.GenWithStack("Unsupported character introducer: '%-.64s'", $3))
+  			return 1
+  		}
+  		expr := ast.NewValueExpr($4, parser.charset, parser.collation)
+  		tp := expr.GetType()
+  		tp.Charset = $3
+  		tp.Collate = co
+  		if tp.Collate == charset.CollationBin {
+  			tp.Flag |= mysql.BinaryFlag
+  		}
+  		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_QUOTE"), Args: []ast.ExprNode{expr}}
+  	}
 
 JSONObjectExpr:
 	"JSON_OBJECT" '(' ValuesOpt ')'
