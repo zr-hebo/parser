@@ -3433,6 +3433,9 @@ DefaultValueExpr:
 	NowSymOptionFraction
 |	SignedLiteral
 |	NextValueForSequence
+|	JSONObjectExpr
+|	JSONArrayExpr
+|	JSONQuoteExpr
 
 DefaultValueExprInParentheses:
 	JSONObjectExpr

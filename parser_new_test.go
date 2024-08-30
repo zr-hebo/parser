@@ -65,6 +65,16 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 		{
 			name: "JSON_OBJECT check",
 			args: args{
+				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT JSON_OBJECT() COMMENT 'product_outsource_details', PRIMARY KEY (`id`))",
+			},
+			wantNewSQL: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT " +
+				"JSON_OBJECT() COMMENT 'product_outsource_details', " +
+				"PRIMARY KEY (`id`))",
+			wantErr: false,
+		},
+		{
+			name: "JSON_OBJECT in parentheses check",
+			args: args{
 				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT (JSON_OBJECT()) COMMENT 'product_outsource_details', PRIMARY KEY (`id`))",
 			},
 			wantNewSQL: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT (" +
@@ -88,6 +98,20 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 			name: "JSON_ARRAY check",
 			args: args{
 				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, " +
+					"outsource_details json NOT NULL DEFAULT JSON_ARRAY() " +
+					"COMMENT 'product_outsource_details', " +
+					"PRIMARY KEY (`id`))",
+			},
+			wantNewSQL: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, " +
+				"outsource_details json NOT NULL DEFAULT JSON_ARRAY() " +
+				"COMMENT 'product_outsource_details', " +
+				"PRIMARY KEY (`id`))",
+			wantErr: false,
+		},
+		{
+			name: "JSON_ARRAY in parentheses check",
+			args: args{
+				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, " +
 					"outsource_details json NOT NULL DEFAULT (JSON_ARRAY()) " +
 					"COMMENT 'product_outsource_details', " +
 					"PRIMARY KEY (`id`))",
@@ -101,19 +125,27 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 		{
 			name: "JSON_ARRAY check with param check",
 			args: args{
-				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, " +
-					"outsource_details json NOT NULL DEFAULT (JSON_ARRAY(1,2,3)) " +
-					"COMMENT 'product_outsource_details', " +
-					"PRIMARY KEY (`id`))",
+				stmt: "CREATE TABLE `json_table3` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT(JSON_ARRAY(1, 2, 3)) " +
+					"COMMENT 'product_outsource_details',PRIMARY KEY(`id`)) ENGINE = InnoDB DEFAULT CHARACTER SET = UTF8MB4 DEFAULT COLLATE = UTF8MB4_0900_AI_CI",
 			},
-			wantNewSQL: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, " +
-				"outsource_details json NOT NULL DEFAULT (JSON_ARRAY(1,2,3)) " +
-				"COMMENT 'product_outsource_details', " +
-				"PRIMARY KEY (`id`))",
+			wantNewSQL: "CREATE TABLE `json_table3` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT(JSON_ARRAY(1, 2, 3)) " +
+				"COMMENT 'product_outsource_details',PRIMARY KEY(`id`)) ENGINE = InnoDB DEFAULT CHARACTER SET = UTF8MB4 DEFAULT COLLATE = UTF8MB4_0900_AI_CI",
 			wantErr: false,
 		},
 		{
 			name: "JSON_QUOTE check",
+			args: args{
+				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT " +
+					"JSON_QUOTE('haha') COMMENT 'product_outsource_details', " +
+					"PRIMARY KEY (`id`))",
+			},
+			wantNewSQL: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT " +
+				"JSON_QUOTE('haha') COMMENT 'product_outsource_details', " +
+				"PRIMARY KEY (`id`))",
+			wantErr: false,
+		},
+		{
+			name: "JSON_QUOTE in parentheses check",
 			args: args{
 				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT (" +
 					"JSON_QUOTE('haha')) COMMENT 'product_outsource_details', " +
