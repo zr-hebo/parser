@@ -839,6 +839,7 @@ import (
 	JSONQuoteExpr                 "JSON quote Expr"
 	JSONArrayExpr                 "JSON array Expr"
 	JSONObjectExpr                "JSON object Expr"
+    KVPairExpr                    "key value pair Expr"
 
 %type	<statement>
 	AdminStmt                  "Check table statement or show ddl statement"
@@ -3460,9 +3461,26 @@ JSONQuoteExpr:
   	}
 
 JSONObjectExpr:
-	"JSON_OBJECT" '(' ValuesOpt ')'
+	"JSON_OBJECT" '(' KVPairExpr ')'
 	{
-		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_OBJECT"), Args: $3.([]ast.ExprNode)}
+		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_OBJECT"), Args: []ast.ExprNode{$3}}
+	}
+
+
+KVPairExpr:
+	KVPairExpr ',' StringLiteral ',' Expression
+	{
+		kvpairExpr := $1.(*ast.KVPairsExpr)
+		keyExpr := $3.(ast.ValueExpr)
+		kvpairExpr.AddKVPair(keyExpr.GetString(), $5)
+		$$ = kvpairExpr
+	}
+|	StringLiteral ',' Expression
+	{
+		kvpairExpr := ast.NewKVPairsExpr()
+		keyExpr := $1.(ast.ValueExpr)
+		kvpairExpr.AddKVPair(keyExpr.GetString(), $3)
+		$$ = kvpairExpr
 	}
 
 JSONArrayExpr:
@@ -5294,6 +5312,9 @@ Expression:
 		$$ = &ast.IsNullExpr{Expr: $1, Not: !$2.(bool)}
 	}
 |	BoolPri
+|	JSONObjectExpr
+|	JSONArrayExpr
+|	JSONQuoteExpr
 
 MaxValueOrExpression:
 	"MAXVALUE"

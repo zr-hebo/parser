@@ -21,6 +21,14 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 		wantErr    bool
 	}{
 		{
+			name: "select JSON_OBJECT check",
+			args: args{
+				stmt: "SELECT JSON_OBJECT('col_name', name, 'new_name', 'John Doe', 'age', 30) AS desc_user FROM transfer",
+			},
+			wantNewSQL: "SELECT JSON_OBJECT('col_name', `name`, 'new_name', 'John Doe', 'age', 30) AS `desc_user` FROM `transfer`",
+			wantErr:    false,
+		},
+		{
 			name: "geometry type check",
 			args: args{
 				stmt: "CREATE TABLE `gis_table` (  `id` bigint NOT NULL, `gis` geometry NOT NULL COMMENT '空间位置信息',  " +

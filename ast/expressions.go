@@ -43,6 +43,7 @@ var (
 	_ ExprNode = &PatternRegexpExpr{}
 	_ ExprNode = &PositionExpr{}
 	_ ExprNode = &RowExpr{}
+	_ ExprNode = &KVPairsExpr{}
 	_ ExprNode = &SubqueryExpr{}
 	_ ExprNode = &UnaryOperationExpr{}
 	_ ExprNode = &ValuesExpr{}
@@ -1105,6 +1106,72 @@ func (n *PatternRegexpExpr) Accept(v Visitor) (Node, bool) {
 		return n, false
 	}
 	n.Pattern = node.(ExprNode)
+	return v.Leave(n)
+}
+
+// KVPairsExpr is the expression for JSON_OBJECT constructor.
+type KVPairsExpr struct {
+	exprNode
+
+	KVPairs []struct {
+		Key string
+		Val ExprNode
+	}
+}
+
+func NewKVPairsExpr() (kv *KVPairsExpr) {
+	kv = &KVPairsExpr{
+		KVPairs: make([]struct {
+			Key string
+			Val ExprNode
+		}, 0, 4),
+	}
+	return
+}
+
+// Restore implements Node interface.
+func (n *KVPairsExpr) Restore(ctx *format.RestoreCtx) error {
+	sep := ""
+	for _, pkpair := range n.KVPairs {
+		ctx.WritePlain(sep)
+		ctx.WritePlain("'")
+		ctx.WritePlain(pkpair.Key)
+		ctx.WritePlain("'")
+		ctx.WritePlain(", ")
+		if err := pkpair.Val.Restore(ctx); err != nil {
+			return errors.Annotatef(err, "An error occurred when restore KVPairsExpr.Values[%v]", pkpair.Val)
+		}
+		sep = ", "
+	}
+	return nil
+}
+
+// Format the ExprNode into a Writer.
+func (n *KVPairsExpr) Format(w io.Writer) {
+	panic("Not implemented")
+}
+
+// AddKVPair add kv pair.
+func (n *KVPairsExpr) AddKVPair(key string, val ExprNode) {
+	n.KVPairs = append(n.KVPairs, struct {
+		Key string
+		Val ExprNode
+	}{Key: key, Val: val})
+}
+
+// Accept implements Node Accept interface.
+func (n *KVPairsExpr) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*KVPairsExpr)
+	for _, kvpair := range n.KVPairs {
+		_, ok := kvpair.Val.Accept(v)
+		if !ok {
+			return n, false
+		}
+	}
 	return v.Leave(n)
 }
 
