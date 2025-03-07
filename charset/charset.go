@@ -475,6 +475,7 @@ var collations = []*Collation{
 	{245, "utf8mb4", "utf8mb4_croatian_ci", false},
 	{246, "utf8mb4", "utf8mb4_unicode_520_ci", false},
 	{247, "utf8mb4", "utf8mb4_vietnamese_ci", false},
+	{248, "utf8mb4", "utf8mb4_cs_0900_ai_ci", false},
 	{255, "utf8mb4", "utf8mb4_0900_ai_ci", false},
 	{2048, "utf8mb4", "utf8mb4_zh_pinyin_tidb_as_cs", false},
 	{3072, "utf8mb3", "utf8mb3_bin", true},
