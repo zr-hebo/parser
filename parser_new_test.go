@@ -87,10 +87,10 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 			name: "JSON_OBJECT with param check",
 			args: args{
 				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT (" +
-					"JSON_OBJECT(_utf8mb4'id',87,_utf8mb4'name',_utf8mb4'carrot')) COMMENT 'product_outsource_details', " +
+					"JSON_OBJECT('id',87,'name','carrot')) COMMENT 'product_outsource_details', " +
 					"PRIMARY KEY (`id`))",
 			},
-			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT (JSON_OBJECT(_UTF8MB4'id', 87, _UTF8MB4'name', _UTF8MB4'carrot')) COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
+			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT (JSON_OBJECT('id', 87, 'name', 'carrot')) COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
 			wantErr:    false,
 		},
 		{
@@ -153,6 +153,53 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 			},
 			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT (JSON_QUOTE(_UTF8MB4'haha')) COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
 			wantErr:    false,
+		},
+		{
+			name: "default CURDATE check",
+			args: args{
+				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details Date NOT NULL DEFAULT " +
+					"CURDATE() COMMENT 'product_outsource_details', " +
+					"PRIMARY KEY (`id`))",
+			},
+			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL," +
+				"`outsource_details` DATE NOT NULL DEFAULT CURRENT_DATE() COMMENT 'product_outsource_details'," +
+				"PRIMARY KEY(`id`))",
+			wantErr: false,
+		},
+		{
+			name: "default CURDATE check with bracket",
+			args: args{
+				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details Date NOT NULL DEFAULT " +
+					"(CURDATE()) COMMENT 'product_outsource_details', " +
+					"PRIMARY KEY (`id`))",
+			},
+			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL," +
+				"`outsource_details` DATE NOT NULL DEFAULT (CURRENT_DATE()) COMMENT 'product_outsource_details'," +
+				"PRIMARY KEY(`id`))",
+			wantErr: false,
+		},
+		{
+			name: "default CURRENT_DATE check",
+			args: args{
+				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details Date NOT NULL DEFAULT " +
+					"CURRENT_DATE() COMMENT 'product_outsource_details', " +
+					"PRIMARY KEY (`id`))",
+			},
+			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL," +
+				"`outsource_details` DATE NOT NULL DEFAULT CURRENT_DATE() COMMENT 'product_outsource_details'," +
+				"PRIMARY KEY(`id`))",
+			wantErr: false,
+		},
+		{
+			name: "default CURRENT_DATE check with bracket",
+			args: args{
+				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details Date NOT NULL DEFAULT " +
+					"(CURRENT_DATE()) COMMENT 'product_outsource_details', " +
+					"PRIMARY KEY (`id`))",
+			},
+			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` DATE NOT NULL DEFAULT " +
+				"(CURRENT_DATE()) COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
+			wantErr: false,
 		},
 	}
 

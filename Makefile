@@ -10,12 +10,12 @@ parser: parser.go hintparser.go
 %arser.go: prefix = $(@:parser.go=)
 %arser.go: %arser.y bin/goyacc
 	@echo "bin/goyacc -o $@ -p yy$(prefix) -t $(prefix)Parser $<"
-	@bin/goyacc -o $@ -p yy$(prefix) -t $(prefix)Parser $< || ( rm -f $@ && echo 'Please check y.output for more information' && exit 1 )
-	@rm -f y.output
+	@bin/goyacc -o $@ -p yy$(prefix) -t $(prefix)Parser $<
+	# @rm -f y.output
 
 %arser_golden.y: %arser.y
 	@bin/goyacc -fmt -fmtout $@ $<
-	@(git diff --no-index --exit-code $< $@ && rm $@) || (mv $@ $< && >&2 echo "formatted $<" && exit 1)
+	@(git diff --no-index --exit-code $< $@ && rm $@)
 
 bin/goyacc: goyacc/main.go goyacc/format_yacc.go
 	GO111MODULE=on go build -o bin/goyacc goyacc/main.go goyacc/format_yacc.go

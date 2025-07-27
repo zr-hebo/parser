@@ -98,6 +98,7 @@ import (
 	create            "CREATE"
 	cross             "CROSS"
 	cumeDist          "CUME_DIST"
+	curDate           "CURDATE"
 	currentDate       "CURRENT_DATE"
 	currentTime       "CURRENT_TIME"
 	currentTs         "CURRENT_TIMESTAMP"
@@ -753,7 +754,6 @@ import (
 	builtinCount
 	builtinApproxCountDistinct
 	builtinApproxPercentile
-	builtinCurDate
 	builtinCurTime
 	builtinDateAdd
 	builtinDateSub
@@ -830,6 +830,7 @@ import (
 	SignedLiteral                 "Literal or NumLiteral with sign"
 	DefaultValueExpr              "DefaultValueExpr(Now or Signed Literal)"
 	NowSymOptionFraction          "NowSym with optional fraction part"
+	CurDateOptionFraction         "CurrDateSym with optional fraction part"
 	CharsetNameOrDefault          "Character set name or default"
 	NextValueForSequence          "Default nextval expression"
 	FunctionNameSequence          "Function with sequence function call"
@@ -1329,6 +1330,8 @@ import (
 	PrimaryOpt        "Optional primary keyword"
 	NowSym            "CURRENT_TIMESTAMP/LOCALTIME/LOCALTIMESTAMP"
 	NowSymFunc        "CURRENT_TIMESTAMP/LOCALTIME/LOCALTIMESTAMP/NOW"
+	CurrDateSym       "CURDATE/CURRENT_DATE"
+	CurrDateSymFunc   "CURRENT_DATE function CURDATE/CURRENT_DATE"
 	DefaultKwdOpt     "optional DEFAULT keyword"
 	DatabaseSym       "DATABASE or SCHEMA"
 	ExplainSym        "EXPLAIN or DESCRIBE or DESC"
@@ -3431,6 +3434,7 @@ ReferOpt:
  */
 DefaultValueExpr:
 	NowSymOptionFraction
+|	CurDateOptionFraction
 |	SignedLiteral
 |	NextValueForSequence
 |	JSONObjectExpr
@@ -3465,6 +3469,10 @@ JSONObjectExpr:
 	{
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_OBJECT"), Args: []ast.ExprNode{$3}}
 	}
+|	"JSON_OBJECT" '(' ')'
+	{
+		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_OBJECT")}
+	}
 
 
 KVPairExpr:
@@ -3477,7 +3485,7 @@ KVPairExpr:
 	}
 |	StringLiteral ',' Expression
 	{
-		kvpairExpr := ast.NewKVPairsExpr()
+		kvpairExpr := &ast.KVPairsExpr{}
 		keyExpr := $1.(ast.ValueExpr)
 		kvpairExpr.AddKVPair(keyExpr.GetString(), $3)
 		$$ = kvpairExpr
@@ -3501,6 +3509,20 @@ NowSymOptionFraction:
 |	NowSymFunc '(' NUM ')'
 	{
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("CURRENT_TIMESTAMP"), Args: []ast.ExprNode{ast.NewValueExpr($3, parser.charset, parser.collation)}}
+	}
+
+CurDateOptionFraction:
+	CurrDateSym
+	{
+		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("CURRENT_DATE")}
+	}
+|	CurrDateSymFunc '(' ')'
+	{
+		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("CURRENT_DATE")}
+	}
+|	CurrDateSymFunc '(' NUM ')'
+	{
+		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("CURRENT_DATE"), Args: []ast.ExprNode{ast.NewValueExpr($3, parser.charset, parser.collation)}}
 	}
 
 NextValueForSequence:
@@ -3532,13 +3554,23 @@ NextValueForSequence:
 NowSymFunc:
 	"CURRENT_TIMESTAMP"
 |	"LOCALTIME"
+|	"CURTIME"
 |	"LOCALTIMESTAMP"
 |	builtinNow
 
 NowSym:
 	"CURRENT_TIMESTAMP"
 |	"LOCALTIME"
+|	"CURTIME"
 |	"LOCALTIMESTAMP"
+
+CurrDateSym:
+	"CURRENT_DATE"
+|	"CURDATE"
+
+CurrDateSymFunc:
+	"CURRENT_DATE"
+|	"CURDATE"
 
 SignedLiteral:
 	Literal
@@ -7115,10 +7147,6 @@ FunctionCallKeyword:
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr($1), Args: $3.([]ast.ExprNode)}
 	}
 |	FunctionNameOptionalBraces OptionalBraces
-	{
-		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr($1)}
-	}
-|	builtinCurDate '(' ')'
 	{
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr($1)}
 	}
