@@ -3063,7 +3063,7 @@ ColumnOption:
 	{
 		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionDefaultValue, Expr: $2}
 	}
-|	"DEFAULT" '(' DefaultValueExpr ')'
+|	"DEFAULT" '(' Expression ')'
 	{
 		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionDefaultValue, Expr: &ast.ParenthesesExpr{Expr: $3}}
 	}

@@ -174,7 +174,7 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 					"PRIMARY KEY (`id`))",
 			},
 			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL," +
-				"`outsource_details` DATE NOT NULL DEFAULT (CURRENT_DATE()) COMMENT 'product_outsource_details'," +
+				"`outsource_details` DATE NOT NULL DEFAULT (CURDATE()) COMMENT 'product_outsource_details'," +
 				"PRIMARY KEY(`id`))",
 			wantErr: false,
 		},
@@ -199,6 +199,28 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 			},
 			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` DATE NOT NULL DEFAULT " +
 				"(CURRENT_DATE()) COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
+			wantErr: false,
+		},
+		{
+			name: "default unix_timestamp() in parentheses check",
+			args: args{
+				stmt: "CREATE TABLE `hadoop_yarn_server_ma` (" +
+					"  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键'," +
+					"  `node_id` bigint NOT NULL COMMENT 'ops_node_tab 的 ID'," +
+					"  `created_at` bigint NOT NULL DEFAULT (unix_timestamp())," +
+					"  `updated_at` bigint NOT NULL DEFAULT (unix_timestamp())," +
+					"  PRIMARY KEY (`id`)," +
+					"  KEY `idx_node_id` (`node_id`)" +
+					") ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci",
+			},
+			wantNewSQL: "CREATE TABLE `hadoop_yarn_server_ma` (" +
+				"`id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键'," +
+				"`node_id` BIGINT NOT NULL COMMENT 'ops_node_tab 的 ID'," +
+				"`created_at` BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP())," +
+				"`updated_at` BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP())," +
+				"PRIMARY KEY(`id`)," +
+				"INDEX `idx_node_id`(`node_id`)" +
+				") ENGINE = InnoDB AUTO_INCREMENT = 25 DEFAULT CHARACTER SET = UTF8MB4 DEFAULT COLLATE = UTF8MB4_0900_AI_CI",
 			wantErr: false,
 		},
 	}
