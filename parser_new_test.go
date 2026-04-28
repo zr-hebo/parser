@@ -25,7 +25,7 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 			args: args{
 				stmt: "SELECT JSON_OBJECT('col_name', name, 'new_name', 'John Doe', 'age', 30) AS desc_user FROM transfer",
 			},
-			wantNewSQL: "SELECT JSON_OBJECT('col_name', `name`, 'new_name', 'John Doe', 'age', 30) AS `desc_user` FROM `transfer`",
+			wantNewSQL: "SELECT JSON_OBJECT('col_name', `name`, 'new_name', _UTF8MB4'John Doe', 'age', 30) AS `desc_user` FROM `transfer`",
 			wantErr:    false,
 		},
 		{
@@ -64,7 +64,7 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 					"'haha') COMMENT 'product_outsource_details', " +
 					"PRIMARY KEY (`id`))",
 			},
-			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT ('haha') COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
+			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT (_UTF8MB4'haha') COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
 			wantErr:    false,
 		},
 		{
@@ -90,7 +90,7 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 					"JSON_OBJECT('id',87,'name','carrot')) COMMENT 'product_outsource_details', " +
 					"PRIMARY KEY (`id`))",
 			},
-			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT (JSON_OBJECT('id', 87, 'name', 'carrot')) COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
+			wantNewSQL: "CREATE TABLE `json_table` (`id` BIGINT NOT NULL,`outsource_details` JSON NOT NULL DEFAULT (JSON_OBJECT('id', 87, 'name', _UTF8MB4'carrot')) COMMENT 'product_outsource_details',PRIMARY KEY(`id`))",
 			wantErr:    false,
 		},
 		{

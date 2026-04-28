@@ -139,7 +139,6 @@ import (
 	from              "FROM"
 	fulltext          "FULLTEXT"
 	generated         "GENERATED"
-	geometryType      "GEOMETRY"
 	grant             "GRANT"
 	group             "GROUP"
 	groups            "GROUPS"
@@ -346,6 +345,7 @@ import (
 	committed             "COMMITTED"
 	compact               "COMPACT"
 	compressed            "COMPRESSED"
+	compressionDictionary "COMPRESSION_DICTIONARY"
 	compression           "COMPRESSION"
 	concurrency           "CONCURRENCY"
 	connection            "CONNECTION"
@@ -382,6 +382,7 @@ import (
 	end                   "END"
 	enforced              "ENFORCED"
 	engine                "ENGINE"
+	engineAttribute       "ENGINE_ATTRIBUTE"
 	engines               "ENGINES"
 	enum                  "ENUM"
 	errorKwd              "ERROR"
@@ -406,6 +407,7 @@ import (
 	full                  "FULL"
 	function              "FUNCTION"
 	general               "GENERAL"
+	geometryType          "GEOMETRY"
 	global                "GLOBAL"
 	grants                "GRANTS"
 	hash                  "HASH"
@@ -430,8 +432,6 @@ import (
 	isolation             "ISOLATION"
 	issuer                "ISSUER"
 	jsonType              "JSON"
-	jsonObject            "JSONObject"
-	jsonArray             "JSONArray"
 	keyBlockSize          "KEY_BLOCK_SIZE"
 	labels                "LABELS"
 	language              "LANGUAGE"
@@ -542,7 +542,9 @@ import (
 	rtree                 "RTREE"
 	san                   "SAN"
 	second                "SECOND"
+	secondary             "SECONDARY"
 	secondaryEngine       "SECONDARY_ENGINE"
+	secondaryEngineAttr   "SECONDARY_ENGINE_ATTRIBUTE"
 	secondaryLoad         "SECONDARY_LOAD"
 	secondaryUnload       "SECONDARY_UNLOAD"
 	security              "SECURITY"
@@ -577,6 +579,7 @@ import (
 	sqlTsiSecond          "SQL_TSI_SECOND"
 	sqlTsiWeek            "SQL_TSI_WEEK"
 	sqlTsiYear            "SQL_TSI_YEAR"
+	srid                  "SRID"
 	start                 "START"
 	statsAutoRecalc       "STATS_AUTO_RECALC"
 	statsPersistent       "STATS_PERSISTENT"
@@ -1382,6 +1385,7 @@ import (
 	CharsetName                     "Character set name"
 	CollationName                   "Collation name"
 	ColumnFormat                    "Column format"
+	ColumnFormatCompressionDictOpt  "optional column format compression dictionary"
 	DBName                          "Database Name"
 	PolicyName                      "Placement Policy Name"
 	ExplainFormatType               "explain format type"
@@ -3130,15 +3134,35 @@ ColumnOption:
 	{
 		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionCollate, StrValue: $2}
 	}
+|	NotSym "SECONDARY"
+	{
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionNotSecondary}
+	}
 |	"COLUMN_FORMAT" ColumnFormat
 	{
 		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionColumnFormat, StrValue: $2}
+	}
+|	"COLUMN_FORMAT" "COMPRESSED" ColumnFormatCompressionDictOpt
+	{
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionColumnFormat, StrValue: "COMPRESSED", CompressionDict: $3}
 	}
 |	"STORAGE" StorageMedia
 	{
 		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionStorage, StrValue: $2}
 		yylex.AppendError(yylex.Errorf("The STORAGE clause is parsed but ignored by all storage engines."))
 		parser.lastErrorAsWarn()
+	}
+|	"ENGINE_ATTRIBUTE" EqOpt stringLit
+	{
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionEngineAttribute, StrValue: $3}
+	}
+|	"SECONDARY_ENGINE_ATTRIBUTE" EqOpt stringLit
+	{
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionSecondaryEngineAttribute, StrValue: $3}
+	}
+|	"SRID" LengthNum
+	{
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionSRID, UintValue: $2.(uint64)}
 	}
 |	"AUTO_RANDOM" OptFieldLen
 	{
@@ -3176,6 +3200,15 @@ ColumnFormat:
 |	"DYNAMIC"
 	{
 		$$ = "DYNAMIC"
+	}
+
+ColumnFormatCompressionDictOpt:
+	{
+		$$ = ""
+	}
+|	"WITH" "COMPRESSION_DICTIONARY" Identifier
+	{
+		$$ = $3
 	}
 
 GeneratedAlways:
@@ -5916,6 +5949,7 @@ UnReservedKeyword:
 |	"COMMIT"
 |	"COMPACT"
 |	"COMPRESSED"
+|	"COMPRESSION_DICTIONARY"
 |	"CONSISTENCY"
 |	"CONSISTENT"
 |	"CURRENT"
@@ -5931,6 +5965,7 @@ UnReservedKeyword:
 |	"END"
 |	"ENFORCED"
 |	"ENGINE"
+|	"ENGINE_ATTRIBUTE"
 |	"ENGINES"
 |	"ENUM"
 |	"ERROR"
@@ -5973,10 +6008,13 @@ UnReservedKeyword:
 |	"ROLE"
 |	"ROLLBACK"
 |	"SESSION"
+|	"SECONDARY"
+|	"SECONDARY_ENGINE_ATTRIBUTE"
 |	"SIGNED"
 |	"SHARD_ROW_ID_BITS"
 |	"SHUTDOWN"
 |	"SNAPSHOT"
+|	"SRID"
 |	"START"
 |	"STATUS"
 |	"OPEN"
@@ -6670,7 +6708,7 @@ Literal:
 StringLiteral:
 	stringLit
 	{
-		expr := ast.NewValueExpr($1, "", "")
+		expr := ast.NewValueExpr($1, parser.charset, parser.collation)
 		$$ = expr
 	}
 |	StringLiteral stringLit
@@ -7044,7 +7082,7 @@ SimpleExpr:
 	}
 |	SimpleIdent jss stringLit
 	{
-		expr := ast.NewValueExpr($3, "", "")
+		expr := ast.NewValueExpr($3, parser.charset, parser.collation)
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr(ast.JSONExtract), Args: []ast.ExprNode{$1, expr}}
 	}
 |	SimpleIdent juss stringLit

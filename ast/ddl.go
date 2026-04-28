@@ -243,6 +243,9 @@ func (n *IndexPartSpecification) Restore(ctx *format.RestoreCtx) error {
 			return errors.Annotate(err, "An error occurred while splicing IndexPartSpecifications")
 		}
 		ctx.WritePlain(")")
+		if n.Desc {
+			ctx.WritePlainf(" DESC")
+		}
 		return nil
 	}
 	if err := n.Column.Restore(ctx); err != nil {
@@ -488,6 +491,10 @@ const (
 	ColumnOptionStorage
 	ColumnOptionAutoRandom
 	ColumnOptionVisible
+	ColumnOptionEngineAttribute
+	ColumnOptionSecondaryEngineAttribute
+	ColumnOptionSRID
+	ColumnOptionNotSecondary
 )
 
 var (
@@ -512,6 +519,8 @@ type ColumnOption struct {
 	// Refer is used for foreign key.
 	Refer               *ReferenceDef
 	StrValue            string
+	CompressionDict     string
+	UintValue           uint64
 	AutoRandomBitLength int
 	// Enforced is only for Check, default is true.
 	Enforced bool
@@ -602,6 +611,10 @@ func (n *ColumnOption) Restore(ctx *format.RestoreCtx) error {
 	case ColumnOptionColumnFormat:
 		ctx.WriteKeyWord("COLUMN_FORMAT ")
 		ctx.WriteKeyWord(n.StrValue)
+		if n.CompressionDict != "" {
+			ctx.WriteKeyWord(" WITH COMPRESSION_DICTIONARY ")
+			ctx.WriteName(n.CompressionDict)
+		}
 	case ColumnOptionStorage:
 		ctx.WriteKeyWord("STORAGE ")
 		ctx.WriteKeyWord(n.StrValue)
@@ -618,6 +631,19 @@ func (n *ColumnOption) Restore(ctx *format.RestoreCtx) error {
 		} else {
 			ctx.WriteKeyWord("INVISIBLE")
 		}
+	case ColumnOptionEngineAttribute:
+		ctx.WriteKeyWord("ENGINE_ATTRIBUTE ")
+		ctx.WritePlain("= ")
+		ctx.WriteString(n.StrValue)
+	case ColumnOptionSecondaryEngineAttribute:
+		ctx.WriteKeyWord("SECONDARY_ENGINE_ATTRIBUTE ")
+		ctx.WritePlain("= ")
+		ctx.WriteString(n.StrValue)
+	case ColumnOptionSRID:
+		ctx.WriteKeyWord("SRID ")
+		ctx.WritePlainf("%d", n.UintValue)
+	case ColumnOptionNotSecondary:
+		ctx.WriteKeyWord("NOT SECONDARY")
 	default:
 		return errors.New("An error occurred while splicing ColumnOption")
 	}

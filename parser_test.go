@@ -2786,7 +2786,7 @@ func (s *testParserSuite) TestDDL(c *C) {
 		{"ALTER TABLE t ADD INDEX (a) USING RTREE COMMENT 'a'", true, "ALTER TABLE `t` ADD INDEX(`a`) USING RTREE COMMENT 'a'"},
 		{"ALTER TABLE t ADD KEY (a) USING HASH COMMENT 'a'", true, "ALTER TABLE `t` ADD INDEX(`a`) USING HASH COMMENT 'a'"},
 		{"ALTER TABLE t ADD KEY IF NOT EXISTS (a) USING HASH COMMENT 'a'", true, "ALTER TABLE `t` ADD INDEX IF NOT EXISTS(`a`) USING HASH COMMENT 'a'"},
-		{"ALTER TABLE t ADD PRIMARY KEY ident USING RTREE ( a DESC , b   )", true, "ALTER TABLE `t` ADD PRIMARY KEY `ident`(`a`, `b`) USING RTREE"},
+		{"ALTER TABLE t ADD PRIMARY KEY ident USING RTREE ( a DESC , b   )", true, "ALTER TABLE `t` ADD PRIMARY KEY `ident`(`a` DESC, `b`) USING RTREE"},
 		{"ALTER TABLE t ADD KEY USING RTREE   ( a ) ", true, "ALTER TABLE `t` ADD INDEX(`a`) USING RTREE"},
 		{"ALTER TABLE t ADD KEY USING RTREE ( ident ASC , ident ( 123 ) )", true, "ALTER TABLE `t` ADD INDEX(`ident`, `ident`(123)) USING RTREE"},
 		{"ALTER TABLE t ADD PRIMARY KEY (a) COMMENT 'a'", true, "ALTER TABLE `t` ADD PRIMARY KEY(`a`) COMMENT 'a'"},
@@ -3268,7 +3268,7 @@ func (s *testParserSuite) TestDDL(c *C) {
 		{"create table a(a int, b int, key((a+1), (b+1)));", true, "CREATE TABLE `a` (`a` INT,`b` INT,INDEX((`a`+1), (`b`+1)))"},
 		{"create table a(a int, b int, key(a, (b+1)));", true, "CREATE TABLE `a` (`a` INT,`b` INT,INDEX(`a`, (`b`+1)))"},
 		{"create table a(a int, b int, key((a+1), b));", true, "CREATE TABLE `a` (`a` INT,`b` INT,INDEX((`a`+1), `b`))"},
-		{"create table a(a int, b int, key((a + 1) desc));", true, "CREATE TABLE `a` (`a` INT,`b` INT,INDEX((`a`+1)))"},
+		{"create table a(a int, b int, key((a + 1) desc));", true, "CREATE TABLE `a` (`a` INT,`b` INT,INDEX((`a`+1) DESC))"},
 
 		// for create sequence
 		{"create sequence sequence", true, "CREATE SEQUENCE `sequence`"},
@@ -5227,6 +5227,34 @@ func (s *testParserSuite) TestSideEffect(c *C) {
 
 	_, err = parser.ParseOneStmt("show tables;", "", "")
 	c.Assert(err, IsNil)
+}
+
+func (s *testParserSuite) TestColumnFormatCompressed(c *C) {
+	sql := "CREATE TABLE `codex_colcomp_probe` (" +
+		"`id` int NOT NULL," +
+		"`extra_data` text COLLATE utf8mb4_general_ci /*!50633 COLUMN_FORMAT COMPRESSED */," +
+		"`extra_dict` text COLLATE utf8mb4_general_ci /*!50633 COLUMN_FORMAT COMPRESSED WITH COMPRESSION_DICTIONARY `codex_logdict` */," +
+		"PRIMARY KEY (`id`)" +
+		") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4"
+
+	parser := parser.New()
+	stmt, err := parser.ParseOneStmt(sql, "", "")
+	c.Assert(err, IsNil)
+
+	var sb strings.Builder
+	err = stmt.Restore(NewRestoreCtx(DefaultRestoreFlags, &sb))
+	c.Assert(err, IsNil)
+	c.Assert(sb.String(), Equals, "CREATE TABLE `codex_colcomp_probe` (`id` INT NOT NULL,`extra_data` TEXT COLLATE utf8mb4_general_ci COLUMN_FORMAT COMPRESSED,`extra_dict` TEXT COLLATE utf8mb4_general_ci COLUMN_FORMAT COMPRESSED WITH COMPRESSION_DICTIONARY `codex_logdict`,PRIMARY KEY(`id`)) ENGINE = InnoDB DEFAULT CHARACTER SET = UTF8MB4 DEFAULT COLLATE = UTF8MB4_GENERAL_CI ROW_FORMAT = COMPRESSED KEY_BLOCK_SIZE = 4")
+}
+
+func (s *testParserSuite) TestMySQLColumnOptions(c *C) {
+	table := []testCase{
+		{"create table t (a int engine_attribute='{}')", true, "CREATE TABLE `t` (`a` INT ENGINE_ATTRIBUTE = '{}')"},
+		{"create table t (a int secondary_engine_attribute='{\"secondary\":true}')", true, "CREATE TABLE `t` (`a` INT SECONDARY_ENGINE_ATTRIBUTE = '{\"secondary\":true}')"},
+		{"create table t (g geometry srid 4326)", true, "CREATE TABLE `t` (`g` GEOMETRY SRID 4326)"},
+		{"create table t (a int not secondary)", true, "CREATE TABLE `t` (`a` INT NOT SECONDARY)"},
+	}
+	s.RunTest(c, table)
 }
 
 func (s *testParserSuite) TestTablePartition(c *C) {
