@@ -348,15 +348,14 @@ func (ft *FieldType) RestoreAsCastType(ctx *format.RestoreCtx, explicitCharset b
 			if ft.ElemTp.Flen != UnspecifiedLength {
 				ctx.WritePlainf("(%d)", ft.ElemTp.Flen)
 			}
-			if !explicitCharset {
-				return
-			}
-			if !skipWriteBinary && ft.ElemTp.Flag&mysql.BinaryFlag != 0 {
-				ctx.WriteKeyWord(" BINARY")
-			}
-			if ft.ElemTp.Charset != charset.CharsetBin && ft.ElemTp.Charset != mysql.DefaultCharset {
-				ctx.WriteKeyWord(" CHARSET ")
-				ctx.WriteKeyWord(ft.ElemTp.Charset)
+			if explicitCharset {
+				if !skipWriteBinary && ft.ElemTp.Flag&mysql.BinaryFlag != 0 {
+					ctx.WriteKeyWord(" BINARY")
+				}
+				if ft.ElemTp.Charset != charset.CharsetBin && ft.ElemTp.Charset != mysql.DefaultCharset {
+					ctx.WriteKeyWord(" CHARSET ")
+					ctx.WriteKeyWord(ft.ElemTp.Charset)
+				}
 			}
 		case mysql.TypeDate:
 			ctx.WriteKeyWord("DATE")

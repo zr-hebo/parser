@@ -125,6 +125,22 @@ func Test_ParseNewSupportSQL(t *testing.T) {
 			wantErr:    false,
 		},
 		{
+			name: "cast char array check",
+			args: args{
+				stmt: "SELECT CAST(labels AS CHAR(50) ARRAY)",
+			},
+			wantNewSQL: "SELECT CAST(`labels` AS CHAR(50) ARRAY)",
+			wantErr:    false,
+		},
+		{
+			name: "multi-valued index cast array check",
+			args: args{
+				stmt: "CREATE TABLE `json_table` (`labels` json DEFAULT NULL, KEY `idx_labels` ((cast(`labels` as char(50) array))))",
+			},
+			wantNewSQL: "CREATE TABLE `json_table` (`labels` JSON DEFAULT NULL,INDEX `idx_labels`((CAST(`labels` AS CHAR(50) ARRAY))))",
+			wantErr:    false,
+		},
+		{
 			name: "JSON_QUOTE check",
 			args: args{
 				stmt: "CREATE TABLE `json_table` (  `id` bigint NOT NULL, outsource_details json NOT NULL DEFAULT " +

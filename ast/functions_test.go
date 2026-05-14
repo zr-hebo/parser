@@ -112,6 +112,7 @@ func (ts *testFunctionsSuite) TestFuncCastExprRestore(c *C) {
 		{"CONVERT('Müller' USING UtF8Mb4)", "CONVERT(_UTF8MB4'Müller' USING 'utf8mb4')"},
 		{"CONVERT('Müller', CHAR(32) CHARACTER SET UtF8)", "CONVERT(_UTF8MB4'Müller', CHAR(32) CHARSET UTF8)"},
 		{"CAST('test' AS CHAR CHARACTER SET UtF8)", "CAST(_UTF8MB4'test' AS CHAR CHARSET UTF8)"},
+		{"CAST(labels AS CHAR(50) ARRAY)", "CAST(`labels` AS CHAR(50) ARRAY)"},
 		{"BINARY 'New York'", "BINARY _UTF8MB4'New York'"},
 	}
 	extractNodeFunc := func(node Node) Node {
