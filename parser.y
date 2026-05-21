@@ -12598,11 +12598,64 @@ PasswordOrLockOption:
 			Type: ast.PasswordExpireDefault,
 		}
 	}
+|	"PASSWORD" "HISTORY" "DEFAULT"
+	{
+		$$ = &ast.PasswordOrLockOption{
+			Type: ast.PasswordHistoryDefault,
+		}
+	}
+|	"PASSWORD" "HISTORY" Int64Num
+	{
+		$$ = &ast.PasswordOrLockOption{
+			Type:  ast.PasswordHistory,
+			Count: $3.(int64),
+		}
+	}
+|	"PASSWORD" PasswordReuse "INTERVAL" "DEFAULT"
+	{
+		$$ = &ast.PasswordOrLockOption{
+			Type: ast.PasswordReuseIntervalDefault,
+		}
+	}
+|	"PASSWORD" PasswordReuse "INTERVAL" Int64Num "DAY"
+	{
+		$$ = &ast.PasswordOrLockOption{
+			Type:  ast.PasswordReuseInterval,
+			Count: $4.(int64),
+		}
+	}
+|	"PASSWORD" "REQUIRE" "CURRENT" "DEFAULT"
+	{
+		$$ = &ast.PasswordOrLockOption{
+			Type: ast.PasswordRequireCurrentDefault,
+		}
+	}
+|	"PASSWORD" "REQUIRE" "CURRENT" "OPTIONAL"
+	{
+		$$ = &ast.PasswordOrLockOption{
+			Type: ast.PasswordRequireCurrentOptional,
+		}
+	}
+|	"PASSWORD" "REQUIRE" "CURRENT"
+	{
+		$$ = &ast.PasswordOrLockOption{
+			Type: ast.PasswordRequireCurrent,
+		}
+	}
 
 PasswordExpire:
 	"PASSWORD" "EXPIRE" ClearPasswordExpireOptions
 	{
 		$$ = nil
+	}
+
+PasswordReuse:
+	identifier
+	{
+		if strings.ToUpper($1) != "REUSE" {
+			yylex.AppendError(yylex.Errorf("syntax error near %s", $1))
+			return 1
+		}
 	}
 
 ClearPasswordExpireOptions:

@@ -1295,6 +1295,13 @@ const (
 	PasswordExpireInterval
 	Lock
 	Unlock
+	PasswordHistoryDefault
+	PasswordHistory
+	PasswordReuseIntervalDefault
+	PasswordReuseInterval
+	PasswordRequireCurrentDefault
+	PasswordRequireCurrentOptional
+	PasswordRequireCurrent
 )
 
 type PasswordOrLockOption struct {
@@ -1318,6 +1325,23 @@ func (p *PasswordOrLockOption) Restore(ctx *format.RestoreCtx) error {
 		ctx.WriteKeyWord("ACCOUNT LOCK")
 	case Unlock:
 		ctx.WriteKeyWord("ACCOUNT UNLOCK")
+	case PasswordHistoryDefault:
+		ctx.WriteKeyWord("PASSWORD HISTORY DEFAULT")
+	case PasswordHistory:
+		ctx.WriteKeyWord("PASSWORD HISTORY")
+		ctx.WritePlainf(" %d", p.Count)
+	case PasswordReuseIntervalDefault:
+		ctx.WriteKeyWord("PASSWORD REUSE INTERVAL DEFAULT")
+	case PasswordReuseInterval:
+		ctx.WriteKeyWord("PASSWORD REUSE INTERVAL")
+		ctx.WritePlainf(" %d", p.Count)
+		ctx.WriteKeyWord(" DAY")
+	case PasswordRequireCurrentDefault:
+		ctx.WriteKeyWord("PASSWORD REQUIRE CURRENT DEFAULT")
+	case PasswordRequireCurrentOptional:
+		ctx.WriteKeyWord("PASSWORD REQUIRE CURRENT OPTIONAL")
+	case PasswordRequireCurrent:
+		ctx.WriteKeyWord("PASSWORD REQUIRE CURRENT")
 	default:
 		return errors.Errorf("Unsupported PasswordOrLockOption.Type %d", p.Type)
 	}
