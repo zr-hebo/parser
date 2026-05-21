@@ -5245,6 +5245,38 @@ func (s *testParserSuite) TestColumnFormatCompressed(c *C) {
 	err = stmt.Restore(NewRestoreCtx(DefaultRestoreFlags, &sb))
 	c.Assert(err, IsNil)
 	c.Assert(sb.String(), Equals, "CREATE TABLE `codex_colcomp_probe` (`id` INT NOT NULL,`extra_data` TEXT COLLATE utf8mb4_general_ci COLUMN_FORMAT COMPRESSED,`extra_dict` TEXT COLLATE utf8mb4_general_ci COLUMN_FORMAT COMPRESSED WITH COMPRESSION_DICTIONARY `codex_logdict`,PRIMARY KEY(`id`)) ENGINE = InnoDB DEFAULT CHARACTER SET = UTF8MB4 DEFAULT COLLATE = UTF8MB4_GENERAL_CI ROW_FORMAT = COMPRESSED KEY_BLOCK_SIZE = 4")
+
+	alterCases := []struct {
+		sql    string
+		expect string
+	}{
+		{
+			"ALTER TABLE `codex_colcomp_probe` ADD COLUMN `extra_data` text COLLATE utf8mb4_general_ci /*!50633 COLUMN_FORMAT COMPRESSED */",
+			"ALTER TABLE `codex_colcomp_probe` ADD COLUMN `extra_data` TEXT COLLATE utf8mb4_general_ci COLUMN_FORMAT COMPRESSED",
+		},
+		{
+			"ALTER TABLE `codex_colcomp_probe` MODIFY COLUMN `extra_dict` text COLLATE utf8mb4_general_ci /*!50633 COLUMN_FORMAT COMPRESSED WITH COMPRESSION_DICTIONARY `codex_logdict` */",
+			"ALTER TABLE `codex_colcomp_probe` MODIFY COLUMN `extra_dict` TEXT COLLATE utf8mb4_general_ci COLUMN_FORMAT COMPRESSED WITH COMPRESSION_DICTIONARY `codex_logdict`",
+		},
+		{
+			"ALTER TABLE `codex_colcomp_probe` MODIFY COLUMN `extra_dict` text COLLATE utf8mb4_general_ci COLUMN_FORMAT = COMPRESSED WITH COMPRESSION_DICTIONARY `codex_logdict`",
+			"ALTER TABLE `codex_colcomp_probe` MODIFY COLUMN `extra_dict` TEXT COLLATE utf8mb4_general_ci COLUMN_FORMAT COMPRESSED WITH COMPRESSION_DICTIONARY `codex_logdict`",
+		},
+		{
+			"ALTER TABLE `codex_colcomp_probe` CHANGE COLUMN `extra_old` `extra_dict` text COLLATE utf8mb4_general_ci /*!50633 COLUMN_FORMAT COMPRESSED WITH COMPRESSION_DICTIONARY `codex_logdict` */",
+			"ALTER TABLE `codex_colcomp_probe` CHANGE COLUMN `extra_old` `extra_dict` TEXT COLLATE utf8mb4_general_ci COLUMN_FORMAT COMPRESSED WITH COMPRESSION_DICTIONARY `codex_logdict`",
+		},
+	}
+
+	for _, tt := range alterCases {
+		stmt, err = parser.ParseOneStmt(tt.sql, "", "")
+		c.Assert(err, IsNil, Commentf("source %s", tt.sql))
+
+		sb.Reset()
+		err = stmt.Restore(NewRestoreCtx(DefaultRestoreFlags, &sb))
+		c.Assert(err, IsNil)
+		c.Assert(sb.String(), Equals, tt.expect)
+	}
 }
 
 func (s *testParserSuite) TestMySQLColumnOptions(c *C) {

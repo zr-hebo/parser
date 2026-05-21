@@ -3138,13 +3138,13 @@ ColumnOption:
 	{
 		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionNotSecondary}
 	}
-|	"COLUMN_FORMAT" ColumnFormat
+|	"COLUMN_FORMAT" EqOpt ColumnFormat
 	{
-		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionColumnFormat, StrValue: $2}
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionColumnFormat, StrValue: $3}
 	}
-|	"COLUMN_FORMAT" "COMPRESSED" ColumnFormatCompressionDictOpt
+|	"COLUMN_FORMAT" EqOpt "COMPRESSED" ColumnFormatCompressionDictOpt
 	{
-		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionColumnFormat, StrValue: "COMPRESSED", CompressionDict: $3}
+		$$ = &ast.ColumnOption{Tp: ast.ColumnOptionColumnFormat, StrValue: "COMPRESSED", CompressionDict: $4}
 	}
 |	"STORAGE" StorageMedia
 	{
