@@ -264,9 +264,13 @@ func main1(in string) (err error) {
 		buf := bytes.NewBuffer(nil)
 		out = buf
 		defer func() {
+			// The tail fragment copied by cznic/parser may contain an invalid
+			// UTF-8 sequence produced from the EOF rune on newer Go versions,
+			// strip it so that go/format accepts the source.
+			src := bytes.ToValidUTF8(buf.Bytes(), nil)
 			var dest []byte
-			if dest, e = format.Source(buf.Bytes()); e != nil {
-				dest = buf.Bytes()
+			if dest, e = format.Source(src); e != nil {
+				dest = src
 			}
 
 			if _, e = w.Write(dest); e != nil && err == nil {

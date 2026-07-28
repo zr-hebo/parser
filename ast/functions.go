@@ -30,6 +30,7 @@ var (
 	_ FuncNode = &FuncCallExpr{}
 	_ FuncNode = &FuncCastExpr{}
 	_ FuncNode = &WindowFuncExpr{}
+	_ FuncNode = &JSONValueExpr{}
 )
 
 // List scalar function names.
@@ -333,6 +334,7 @@ const (
 	JSONMergePreserve = "json_merge_preserve"
 	JSONPretty        = "json_pretty"
 	JSONQuote         = "json_quote"
+	JSONValue         = "json_value"
 	JSONSearch        = "json_search"
 	JSONStorageSize   = "json_storage_size"
 	JSONDepth         = "json_depth"
@@ -1114,5 +1116,70 @@ func (n *GetFormatSelectorExpr) Accept(v Visitor) (Node, bool) {
 	if skipChildren {
 		return v.Leave(newNode)
 	}
+	return v.Leave(n)
+}
+
+// JSONValueExpr represents the JSON_VALUE() function with an optional RETURNING clause.
+// See https://dev.mysql.com/doc/refman/8.0/en/json-search-functions.html#function_json-value
+type JSONValueExpr struct {
+	funcNode
+
+	// JSONDoc is the JSON document expression.
+	JSONDoc ExprNode
+	// Path is the JSON path expression.
+	Path ExprNode
+	// ReturningType is the optional RETURNING type, nil if not specified.
+	ReturningType *types.FieldType
+}
+
+// Restore implements Node interface.
+func (n *JSONValueExpr) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("JSON_VALUE")
+	ctx.WritePlain("(")
+	if err := n.JSONDoc.Restore(ctx); err != nil {
+		return errors.Annotatef(err, "An error occurred while restore JSONValueExpr.JSONDoc")
+	}
+	ctx.WritePlain(", ")
+	if err := n.Path.Restore(ctx); err != nil {
+		return errors.Annotatef(err, "An error occurred while restore JSONValueExpr.Path")
+	}
+	if n.ReturningType != nil {
+		ctx.WriteKeyWord(" RETURNING ")
+		n.ReturningType.RestoreAsCastType(ctx, false)
+	}
+	ctx.WritePlain(")")
+	return nil
+}
+
+// Format the ExprNode into a Writer.
+func (n *JSONValueExpr) Format(w io.Writer) {
+	fmt.Fprint(w, "JSON_VALUE(")
+	n.JSONDoc.Format(w)
+	fmt.Fprint(w, ", ")
+	n.Path.Format(w)
+	if n.ReturningType != nil {
+		fmt.Fprint(w, " RETURNING ")
+		n.ReturningType.FormatAsCastType(w, false)
+	}
+	fmt.Fprint(w, ")")
+}
+
+// Accept implements Node Accept interface.
+func (n *JSONValueExpr) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*JSONValueExpr)
+	node, ok := n.JSONDoc.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.JSONDoc = node.(ExprNode)
+	node, ok = n.Path.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.Path = node.(ExprNode)
 	return v.Leave(n)
 }

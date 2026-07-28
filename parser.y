@@ -26,6 +26,7 @@
 package parser
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/pingcap/parser/mysql"
@@ -171,6 +172,7 @@ import (
 	jsonArray         "JSON_ARRAY"
 	jsonObject        "JSON_OBJECT"
 	jsonQuote         "JSON_QUOTE"
+	jsonValue         "JSON_VALUE"
 	key               "KEY"
 	keys              "KEYS"
 	kill              "KILL"
@@ -314,6 +316,7 @@ import (
 	backups               "BACKUPS"
 	begin                 "BEGIN"
 	bernoulli             "BERNOULLI"
+	before                "BEFORE"
 	binding               "BINDING"
 	bindings              "BINDINGS"
 	binlog                "BINLOG"
@@ -377,6 +380,7 @@ import (
 	do                    "DO"
 	duplicate             "DUPLICATE"
 	dynamic               "DYNAMIC"
+	each                  "EACH"
 	enable                "ENABLE"
 	encryption            "ENCRYPTION"
 	end                   "END"
@@ -402,6 +406,7 @@ import (
 	first                 "FIRST"
 	fixed                 "FIXED"
 	flush                 "FLUSH"
+	follows               "FOLLOWS"
 	following             "FOLLOWING"
 	format                "FORMAT"
 	full                  "FULL"
@@ -501,6 +506,7 @@ import (
 	plugins               "PLUGINS"
 	policy                "POLICY"
 	preSplitRegions       "PRE_SPLIT_REGIONS"
+	precedes              "PRECEDES"
 	preceding             "PRECEDING"
 	prepare               "PREPARE"
 	preserve              "PRESERVE"
@@ -533,6 +539,7 @@ import (
 	restore               "RESTORE"
 	restores              "RESTORES"
 	resume                "RESUME"
+	returning             "RETURNING"
 	reverse               "REVERSE"
 	role                  "ROLE"
 	rollback              "ROLLBACK"
@@ -597,6 +604,7 @@ import (
 	systemTime            "SYSTEM_TIME"
 	tableChecksum         "TABLE_CHECKSUM"
 	tables                "TABLES"
+	tableStatistics       "TABLE_STATISTICS"
 	tablespace            "TABLESPACE"
 	temporary             "TEMPORARY"
 	temptable             "TEMPTABLE"
@@ -843,6 +851,7 @@ import (
 	JSONQuoteExpr                 "JSON quote Expr"
 	JSONArrayExpr                 "JSON array Expr"
 	JSONObjectExpr                "JSON object Expr"
+	JSONValueExpr                 "JSON value Expr"
     KVPairExpr                    "key value pair Expr"
 
 %type	<statement>
@@ -892,6 +901,10 @@ import (
 	ExplainStmt                "EXPLAIN statement"
 	ExplainableStmt            "explainable statement"
 	FlushStmt                  "Flush statement"
+	OptimizeTableStmt          "Optimize table statement"
+	CreateTriggerStmt          "Create trigger statement"
+	DropTriggerStmt            "Drop trigger statement"
+	TriggerBody                "Trigger body statement"
 	FlashbackTableStmt         "Flashback table statement"
 	GrantStmt                  "Grant statement"
 	GrantProxyStmt             "Grant proxy statement"
@@ -962,6 +975,9 @@ import (
 	Boolean                                "Boolean (0, 1, false, true)"
 	OptionalBraces                         "optional braces"
 	CastType                               "Cast function target type"
+	TriggerTiming                          "Trigger timing, BEFORE or AFTER"
+	TriggerEvent                           "Trigger event, INSERT, UPDATE or DELETE"
+	TriggerOrderOpt                        "Trigger order, FOLLOWS or PRECEDES other trigger"
 	ClearPasswordExpireOptions             "Clear password expire options"
 	ColumnDef                              "table column definition"
 	ColumnDefList                          "table column definition list"
@@ -3530,6 +3546,16 @@ JSONArrayExpr:
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_ARRAY"), Args: $3.([]ast.ExprNode)}
 	}
 
+JSONValueExpr:
+	"JSON_VALUE" '(' Expression ',' Expression ')'
+	{
+		$$ = &ast.JSONValueExpr{JSONDoc: $3, Path: $5}
+	}
+|	"JSON_VALUE" '(' Expression ',' Expression "RETURNING" CastType ')'
+	{
+		$$ = &ast.JSONValueExpr{JSONDoc: $3, Path: $5, ReturningType: $7.(*types.FieldType)}
+	}
+
 NowSymOptionFraction:
 	NowSym
 	{
@@ -3869,6 +3895,14 @@ DatabaseOption:
 |	DefaultKwdOpt "ENCRYPTION" EqOpt EncryptionOpt
 	{
 		$$ = &ast.DatabaseOption{Tp: ast.DatabaseOptionEncryption, Value: $4}
+	}
+|	"READ" "ONLY" EqOpt "DEFAULT"
+	{
+		$$ = &ast.DatabaseOption{Tp: ast.DatabaseOptionReadOnly, Value: "DEFAULT"}
+	}
+|	"READ" "ONLY" EqOpt NUM
+	{
+		$$ = &ast.DatabaseOption{Tp: ast.DatabaseOptionReadOnly, Value: strconv.FormatInt($4.(int64), 10)}
 	}
 |	DefaultKwdOpt PlacementPolicyOption
 	{
@@ -4672,6 +4706,97 @@ DropViewStmt:
 		$$ = &ast.DropTableStmt{IfExists: true, Tables: $5.([]*ast.TableName), IsView: true}
 	}
 
+/***********************************************************************************
+ *
+ *  Trigger Statement
+ *  See https://dev.mysql.com/doc/refman/8.0/en/create-trigger.html
+ *
+ *  CREATE [DEFINER = user] TRIGGER [IF NOT EXISTS] trigger_name
+ *      { BEFORE | AFTER } { INSERT | UPDATE | DELETE }
+ *      ON tbl_name FOR EACH ROW [{ FOLLOWS | PRECEDES } other_trigger_name]
+ *      trigger_body
+ *
+ *  DROP TRIGGER [IF EXISTS] [schema_name.]trigger_name
+ *
+ *  Note: trigger_body only supports a single INSERT/REPLACE/UPDATE/DELETE
+ *  statement, BEGIN ... END compound statements are not supported yet.
+ *
+ *  The CREATE prefix shares the OrReplace/ViewAlgorithm/ViewDefiner chain with
+ *  CreateViewStmt to avoid LALR(1) conflicts on DEFINER, and rejects OR
+ *  REPLACE/ALGORITHM semantically in the action.
+ ***********************************************************************************/
+CreateTriggerStmt:
+	"CREATE" OrReplace ViewAlgorithm ViewDefiner "TRIGGER" IfNotExists TableName TriggerTiming TriggerEvent "ON" TableName "FOR" "EACH" "ROW" TriggerOrderOpt TriggerBody
+	{
+		if $2.(bool) {
+			yylex.AppendError(yylex.Errorf("OR REPLACE is not allowed for CREATE TRIGGER"))
+			return 1
+		}
+		if $3.(model.ViewAlgorithm) != model.AlgorithmUndefined {
+			yylex.AppendError(yylex.Errorf("ALGORITHM is not allowed for CREATE TRIGGER"))
+			return 1
+		}
+		$$ = &ast.CreateTriggerStmt{
+			Definer:     $4.(*auth.UserIdentity),
+			IfNotExists: $6.(bool),
+			Name:        $7.(*ast.TableName),
+			Timing:      $8.(ast.TriggerTiming),
+			Event:       $9.(ast.TriggerEvent),
+			Table:       $11.(*ast.TableName),
+			Order:       $15.(*ast.TriggerOrder),
+			Body:        $16.(ast.StmtNode),
+		}
+	}
+
+TriggerTiming:
+	"BEFORE"
+	{
+		$$ = ast.TriggerTimingBefore
+	}
+|	"AFTER"
+	{
+		$$ = ast.TriggerTimingAfter
+	}
+
+TriggerEvent:
+	"INSERT"
+	{
+		$$ = ast.TriggerEventInsert
+	}
+|	"UPDATE"
+	{
+		$$ = ast.TriggerEventUpdate
+	}
+|	"DELETE"
+	{
+		$$ = ast.TriggerEventDelete
+	}
+
+TriggerOrderOpt:
+	{
+		$$ = (*ast.TriggerOrder)(nil)
+	}
+|	"FOLLOWS" TableName
+	{
+		$$ = &ast.TriggerOrder{IsFollows: true, OtherTrigger: $2.(*ast.TableName)}
+	}
+|	"PRECEDES" TableName
+	{
+		$$ = &ast.TriggerOrder{IsFollows: false, OtherTrigger: $2.(*ast.TableName)}
+	}
+
+TriggerBody:
+	InsertIntoStmt
+|	ReplaceIntoStmt
+|	UpdateStmt
+|	DeleteFromStmt
+
+DropTriggerStmt:
+	"DROP" "TRIGGER" IfExists TableName
+	{
+		$$ = &ast.DropTriggerStmt{IfExists: $3.(bool), Name: $4.(*ast.TableName)}
+	}
+
 DropUserStmt:
 	"DROP" "USER" UsernameList
 	{
@@ -5380,6 +5505,7 @@ Expression:
 |	JSONObjectExpr
 |	JSONArrayExpr
 |	JSONQuoteExpr
+|	JSONValueExpr
 
 MaxValueOrExpression:
 	"MAXVALUE"
@@ -6246,6 +6372,12 @@ UnReservedKeyword:
 |	"POLICY"
 |	"WAIT"
 |	"CLIENT_ERRORS_SUMMARY"
+|	"TABLE_STATISTICS"
+|	"BEFORE"
+|	"EACH"
+|	"FOLLOWS"
+|	"PRECEDES"
+|	"RETURNING"
 |	"BERNOULLI"
 |	"SYSTEM"
 |	"PERCENT"
@@ -10927,6 +11059,15 @@ ShowTableAliasOpt:
 		$$ = $2.(*ast.TableName)
 	}
 
+OptimizeTableStmt:
+	"OPTIMIZE" NoWriteToBinLogAliasOpt "TABLE" TableNameList
+	{
+		$$ = &ast.OptimizeTableStmt{
+			NoWriteToBinLog: $2.(bool),
+			TableNames:      $4.([]*ast.TableName),
+		}
+	}
+
 FlushStmt:
 	"FLUSH" NoWriteToBinLogAliasOpt FlushOption
 	{
@@ -10990,6 +11131,12 @@ FlushOption:
 	{
 		$$ = &ast.FlushStmt{
 			Tp: ast.FlushClientErrorsSummary,
+		}
+	}
+|	"TABLE_STATISTICS"
+	{
+		$$ = &ast.FlushStmt{
+			Tp: ast.FlushTableStatistics,
 		}
 	}
 
@@ -11104,6 +11251,9 @@ Statement:
 |	DropStatsStmt
 |	DropBindingStmt
 |	FlushStmt
+|	OptimizeTableStmt
+|	CreateTriggerStmt
+|	DropTriggerStmt
 |	FlashbackTableStmt
 |	GrantStmt
 |	GrantProxyStmt

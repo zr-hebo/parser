@@ -42,6 +42,9 @@ var (
 	_ DDLNode = &RenameTableStmt{}
 	_ DDLNode = &TruncateTableStmt{}
 	_ DDLNode = &RepairTableStmt{}
+	_ DDLNode = &OptimizeTableStmt{}
+	_ DDLNode = &CreateTriggerStmt{}
+	_ DDLNode = &DropTriggerStmt{}
 
 	_ Node = &AlterTableSpec{}
 	_ Node = &ColumnDef{}
@@ -73,6 +76,7 @@ const (
 	DatabaseOptionCharset
 	DatabaseOptionCollate
 	DatabaseOptionEncryption
+	DatabaseOptionReadOnly
 	DatabaseOptionPlacementPrimaryRegion       = DatabaseOptionType(PlacementOptionPrimaryRegion)
 	DatabaseOptionPlacementRegions             = DatabaseOptionType(PlacementOptionRegions)
 	DatabaseOptionPlacementFollowerCount       = DatabaseOptionType(PlacementOptionFollowerCount)
@@ -109,6 +113,10 @@ func (n *DatabaseOption) Restore(ctx *format.RestoreCtx) error {
 		ctx.WriteKeyWord("ENCRYPTION")
 		ctx.WritePlain(" = ")
 		ctx.WriteString(n.Value)
+	case DatabaseOptionReadOnly:
+		ctx.WriteKeyWord("READ ONLY")
+		ctx.WritePlain(" = ")
+		ctx.WritePlain(n.Value)
 	case DatabaseOptionPlacementPrimaryRegion, DatabaseOptionPlacementRegions, DatabaseOptionPlacementFollowerCount, DatabaseOptionPlacementLeaderConstraints, DatabaseOptionPlacementLearnerCount, DatabaseOptionPlacementVoterCount, DatabaseOptionPlacementSchedule, DatabaseOptionPlacementConstraints, DatabaseOptionPlacementFollowerConstraints, DatabaseOptionPlacementVoterConstraints, DatabaseOptionPlacementLearnerConstraints, DatabaseOptionPlacementPolicy:
 		placementOpt := PlacementOption{
 			Tp:        PlacementOptionType(n.Tp),
@@ -1906,6 +1914,242 @@ func (n *RepairTableStmt) Restore(ctx *format.RestoreCtx) error {
 		return errors.Annotatef(err, "An error occurred while restore RepairTableStmt.createStmt : [%v]", n.CreateStmt)
 	}
 	return nil
+}
+
+// OptimizeTableStmt is a statement to optimize table.
+// See https://dev.mysql.com/doc/refman/8.0/en/optimize-table.html
+type OptimizeTableStmt struct {
+	ddlNode
+
+	TableNames      []*TableName
+	NoWriteToBinLog bool
+}
+
+// Accept implements Node Accept interface.
+func (n *OptimizeTableStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*OptimizeTableStmt)
+	for i, t := range n.TableNames {
+		node, ok := t.Accept(v)
+		if !ok {
+			return n, false
+		}
+		n.TableNames[i] = node.(*TableName)
+	}
+	return v.Leave(n)
+}
+
+// Restore implements Node interface.
+func (n *OptimizeTableStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("OPTIMIZE ")
+	if n.NoWriteToBinLog {
+		ctx.WriteKeyWord("NO_WRITE_TO_BINLOG ")
+	}
+	ctx.WriteKeyWord("TABLE ")
+	for i, t := range n.TableNames {
+		if i != 0 {
+			ctx.WritePlain(", ")
+		}
+		if err := t.Restore(ctx); err != nil {
+			return errors.Annotatef(err, "An error occurred while restore OptimizeTableStmt.TableNames[%d]", i)
+		}
+	}
+	return nil
+}
+
+// TriggerTiming is the timing of trigger execution.
+type TriggerTiming int
+
+const (
+	// TriggerTimingBefore means trigger is activated before the event.
+	TriggerTimingBefore TriggerTiming = iota + 1
+	// TriggerTimingAfter means trigger is activated after the event.
+	TriggerTimingAfter
+)
+
+// TriggerEvent is the event that activates the trigger.
+type TriggerEvent int
+
+const (
+	// TriggerEventInsert means the trigger is activated by INSERT.
+	TriggerEventInsert TriggerEvent = iota + 1
+	// TriggerEventUpdate means the trigger is activated by UPDATE.
+	TriggerEventUpdate
+	// TriggerEventDelete means the trigger is activated by DELETE.
+	TriggerEventDelete
+)
+
+// TriggerOrder represents the trigger order clause, FOLLOWS or PRECEDES other trigger.
+type TriggerOrder struct {
+	node
+
+	IsFollows    bool
+	OtherTrigger *TableName
+}
+
+// Restore implements Node interface.
+func (n *TriggerOrder) Restore(ctx *format.RestoreCtx) error {
+	if n.IsFollows {
+		ctx.WriteKeyWord("FOLLOWS ")
+	} else {
+		ctx.WriteKeyWord("PRECEDES ")
+	}
+	if err := n.OtherTrigger.Restore(ctx); err != nil {
+		return errors.Annotatef(err, "An error occurred while restore TriggerOrder.OtherTrigger")
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *TriggerOrder) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*TriggerOrder)
+	node, ok := n.OtherTrigger.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.OtherTrigger = node.(*TableName)
+	return v.Leave(n)
+}
+
+// CreateTriggerStmt is a statement to create a trigger.
+// See https://dev.mysql.com/doc/refman/8.0/en/create-trigger.html
+type CreateTriggerStmt struct {
+	ddlNode
+
+	Definer     *auth.UserIdentity
+	IfNotExists bool
+	Name        *TableName
+	Timing      TriggerTiming
+	Event       TriggerEvent
+	Table       *TableName
+	Order       *TriggerOrder
+	Body        StmtNode
+}
+
+// Restore implements Node interface.
+func (n *CreateTriggerStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("CREATE ")
+	if n.Definer != nil && !n.Definer.CurrentUser {
+		ctx.WriteKeyWord("DEFINER")
+		ctx.WritePlain(" = ")
+		ctx.WriteName(n.Definer.Username)
+		if n.Definer.Hostname != "" {
+			ctx.WritePlain("@")
+			ctx.WriteName(n.Definer.Hostname)
+		}
+		ctx.WritePlain(" ")
+	}
+	ctx.WriteKeyWord("TRIGGER ")
+	if n.IfNotExists {
+		ctx.WriteKeyWord("IF NOT EXISTS ")
+	}
+	if err := n.Name.Restore(ctx); err != nil {
+		return errors.Annotatef(err, "An error occurred while restore CreateTriggerStmt.Name")
+	}
+	ctx.WritePlain(" ")
+	if n.Timing == TriggerTimingBefore {
+		ctx.WriteKeyWord("BEFORE ")
+	} else {
+		ctx.WriteKeyWord("AFTER ")
+	}
+	switch n.Event {
+	case TriggerEventInsert:
+		ctx.WriteKeyWord("INSERT")
+	case TriggerEventUpdate:
+		ctx.WriteKeyWord("UPDATE")
+	case TriggerEventDelete:
+		ctx.WriteKeyWord("DELETE")
+	}
+	ctx.WriteKeyWord(" ON ")
+	if err := n.Table.Restore(ctx); err != nil {
+		return errors.Annotatef(err, "An error occurred while restore CreateTriggerStmt.Table")
+	}
+	ctx.WriteKeyWord(" FOR EACH ROW ")
+	if n.Order != nil {
+		if err := n.Order.Restore(ctx); err != nil {
+			return errors.Annotatef(err, "An error occurred while restore CreateTriggerStmt.Order")
+		}
+		ctx.WritePlain(" ")
+	}
+	if err := n.Body.Restore(ctx); err != nil {
+		return errors.Annotatef(err, "An error occurred while restore CreateTriggerStmt.Body")
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *CreateTriggerStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*CreateTriggerStmt)
+	node, ok := n.Name.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.Name = node.(*TableName)
+	node, ok = n.Table.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.Table = node.(*TableName)
+	if n.Order != nil {
+		node, ok = n.Order.Accept(v)
+		if !ok {
+			return n, false
+		}
+		n.Order = node.(*TriggerOrder)
+	}
+	node, ok = n.Body.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.Body = node.(StmtNode)
+	return v.Leave(n)
+}
+
+// DropTriggerStmt is a statement to drop a trigger.
+// See https://dev.mysql.com/doc/refman/8.0/en/drop-trigger.html
+type DropTriggerStmt struct {
+	ddlNode
+
+	IfExists bool
+	Name     *TableName
+}
+
+// Restore implements Node interface.
+func (n *DropTriggerStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("DROP TRIGGER ")
+	if n.IfExists {
+		ctx.WriteKeyWord("IF EXISTS ")
+	}
+	if err := n.Name.Restore(ctx); err != nil {
+		return errors.Annotatef(err, "An error occurred while restore DropTriggerStmt.Name")
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *DropTriggerStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*DropTriggerStmt)
+	node, ok := n.Name.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.Name = node.(*TableName)
+	return v.Leave(n)
 }
 
 // PlacementOptionType is the type for PlacementOption

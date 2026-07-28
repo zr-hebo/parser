@@ -1352,6 +1352,151 @@ func (s *testParserSuite) TestFlushPrivileges(c *C) {
 	c.Assert(flushPrivilege.Tp, Equals, ast.FlushPrivileges)
 }
 
+func (s *testParserSuite) TestFlushTableStatistics(c *C) {
+	table := []testCase{
+		{"FLUSH TABLE_STATISTICS", true, "FLUSH TABLE_STATISTICS"},
+		{"FLUSH NO_WRITE_TO_BINLOG TABLE_STATISTICS", true, "FLUSH NO_WRITE_TO_BINLOG TABLE_STATISTICS"},
+		{"FLUSH LOCAL TABLE_STATISTICS", true, "FLUSH NO_WRITE_TO_BINLOG TABLE_STATISTICS"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("flush table_statistics", "", "")
+	c.Assert(err, IsNil)
+	flushStmt := stmt[0].(*ast.FlushStmt)
+	c.Assert(flushStmt.Tp, Equals, ast.FlushTableStatistics)
+	c.Assert(flushStmt.NoWriteToBinLog, IsFalse)
+
+	stmt, _, err = parser.Parse("flush no_write_to_binlog table_statistics", "", "")
+	c.Assert(err, IsNil)
+	flushStmt = stmt[0].(*ast.FlushStmt)
+	c.Assert(flushStmt.Tp, Equals, ast.FlushTableStatistics)
+	c.Assert(flushStmt.NoWriteToBinLog, IsTrue)
+}
+
+func (s *testParserSuite) TestOptimizeTable(c *C) {
+	table := []testCase{
+		{"optimize table orchestrator_task_tab_00020001", true, "OPTIMIZE TABLE `orchestrator_task_tab_00020001`"},
+		{"OPTIMIZE TABLE t1", true, "OPTIMIZE TABLE `t1`"},
+		{"OPTIMIZE TABLE t1, t2", true, "OPTIMIZE TABLE `t1`, `t2`"},
+		{"OPTIMIZE TABLE db1.t1, db2.t2", true, "OPTIMIZE TABLE `db1`.`t1`, `db2`.`t2`"},
+		{"OPTIMIZE NO_WRITE_TO_BINLOG TABLE t1", true, "OPTIMIZE NO_WRITE_TO_BINLOG TABLE `t1`"},
+		{"OPTIMIZE LOCAL TABLE t1", true, "OPTIMIZE NO_WRITE_TO_BINLOG TABLE `t1`"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("optimize local table db1.t1, t2", "", "")
+	c.Assert(err, IsNil)
+	optimizeTable := stmt[0].(*ast.OptimizeTableStmt)
+	c.Assert(optimizeTable.NoWriteToBinLog, IsTrue)
+	c.Assert(optimizeTable.TableNames, HasLen, 2)
+	c.Assert(optimizeTable.TableNames[0].Schema.L, Equals, "db1")
+	c.Assert(optimizeTable.TableNames[0].Name.L, Equals, "t1")
+	c.Assert(optimizeTable.TableNames[1].Name.L, Equals, "t2")
+}
+
+func (s *testParserSuite) TestJSONValue(c *C) {
+	table := []testCase{
+		{"SELECT JSON_VALUE(j, '$.a') FROM t", true, "SELECT JSON_VALUE(`j`, _UTF8MB4'$.a') FROM `t`"},
+		{"SELECT JSON_VALUE(j, '$.a' RETURNING CHAR(10)) FROM t", true, "SELECT JSON_VALUE(`j`, _UTF8MB4'$.a' RETURNING CHAR(10)) FROM `t`"},
+		{"SELECT JSON_VALUE(j, '$.a' RETURNING DECIMAL(10,2)) FROM t", true, "SELECT JSON_VALUE(`j`, _UTF8MB4'$.a' RETURNING DECIMAL(10, 2)) FROM `t`"},
+		{"SELECT JSON_VALUE(doc, _UTF8MB4'$.a' RETURNING DATE) FROM t", true, "SELECT JSON_VALUE(`doc`, _UTF8MB4'$.a' RETURNING DATE) FROM `t`"},
+		{"SELECT JSON_VALUE(j, '$.a' RETURNING UNSIGNED) FROM t", true, "SELECT JSON_VALUE(`j`, _UTF8MB4'$.a' RETURNING UNSIGNED) FROM `t`"},
+		{"CREATE TABLE `json_table` (`j` JSON DEFAULT NULL,`c` VARCHAR(10) GENERATED ALWAYS AS(JSON_VALUE(`j`, _UTF8MB4'$.a' RETURNING CHAR(10))) VIRTUAL)", true,
+			"CREATE TABLE `json_table` (`j` JSON DEFAULT NULL,`c` VARCHAR(10) GENERATED ALWAYS AS(JSON_VALUE(`j`, _UTF8MB4'$.a' RETURNING CHAR(10))) VIRTUAL)"},
+		{"CREATE TABLE `json_table` (`j` JSON,`c` INT GENERATED ALWAYS AS(JSON_VALUE(`j`, '$.a')) STORED)", true,
+			"CREATE TABLE `json_table` (`j` JSON,`c` INT GENERATED ALWAYS AS(JSON_VALUE(`j`, _UTF8MB4'$.a')) STORED)"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	st, err := parser.ParseOneStmt("SELECT JSON_VALUE(j, '$.a' RETURNING CHAR(10)) FROM t", "", "")
+	c.Assert(err, IsNil)
+	sel := st.(*ast.SelectStmt)
+	jsonValue, ok := sel.Fields.Fields[0].Expr.(*ast.JSONValueExpr)
+	c.Assert(ok, IsTrue)
+	c.Assert(jsonValue.ReturningType, NotNil)
+	c.Assert(jsonValue.ReturningType.Tp, Equals, mysql.TypeVarString)
+	c.Assert(jsonValue.ReturningType.Flen, Equals, 10)
+
+	st, err = parser.ParseOneStmt("SELECT JSON_VALUE(j, '$.a') FROM t", "", "")
+	c.Assert(err, IsNil)
+	sel = st.(*ast.SelectStmt)
+	jsonValue, ok = sel.Fields.Fields[0].Expr.(*ast.JSONValueExpr)
+	c.Assert(ok, IsTrue)
+	c.Assert(jsonValue.ReturningType, IsNil)
+}
+
+func (s *testParserSuite) TestTrigger(c *C) {
+	table := []testCase{
+		{"CREATE TRIGGER trg BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO log_t VALUES (NEW.id)", true,
+			"CREATE TRIGGER `trg` BEFORE INSERT ON `t1` FOR EACH ROW INSERT INTO `log_t` VALUES (`NEW`.`id`)"},
+		{"CREATE TRIGGER trg AFTER UPDATE ON t1 FOR EACH ROW UPDATE log_t SET cnt = cnt + 1", true,
+			"CREATE TRIGGER `trg` AFTER UPDATE ON `t1` FOR EACH ROW UPDATE `log_t` SET `cnt`=`cnt`+1"},
+		{"CREATE TRIGGER trg AFTER DELETE ON t1 FOR EACH ROW DELETE FROM log_t WHERE id = OLD.id", true,
+			"CREATE TRIGGER `trg` AFTER DELETE ON `t1` FOR EACH ROW DELETE FROM `log_t` WHERE `id`=`OLD`.`id`"},
+		{"CREATE TRIGGER trg BEFORE INSERT ON t1 FOR EACH ROW REPLACE INTO log_t VALUES (NEW.id)", true,
+			"CREATE TRIGGER `trg` BEFORE INSERT ON `t1` FOR EACH ROW REPLACE INTO `log_t` VALUES (`NEW`.`id`)"},
+		{"CREATE DEFINER='admin'@'localhost' TRIGGER trg BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO log_t VALUES (NEW.id)", true,
+			"CREATE DEFINER = `admin`@`localhost` TRIGGER `trg` BEFORE INSERT ON `t1` FOR EACH ROW INSERT INTO `log_t` VALUES (`NEW`.`id`)"},
+		{"CREATE DEFINER=CURRENT_USER TRIGGER trg BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO log_t VALUES (1)", true,
+			"CREATE TRIGGER `trg` BEFORE INSERT ON `t1` FOR EACH ROW INSERT INTO `log_t` VALUES (1)"},
+		{"CREATE TRIGGER IF NOT EXISTS trg BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO log_t VALUES (1)", true,
+			"CREATE TRIGGER IF NOT EXISTS `trg` BEFORE INSERT ON `t1` FOR EACH ROW INSERT INTO `log_t` VALUES (1)"},
+		{"CREATE TRIGGER trg BEFORE INSERT ON t1 FOR EACH ROW FOLLOWS other_trg INSERT INTO log_t VALUES (1)", true,
+			"CREATE TRIGGER `trg` BEFORE INSERT ON `t1` FOR EACH ROW FOLLOWS `other_trg` INSERT INTO `log_t` VALUES (1)"},
+		{"CREATE TRIGGER trg BEFORE INSERT ON t1 FOR EACH ROW PRECEDES other_trg INSERT INTO log_t VALUES (1)", true,
+			"CREATE TRIGGER `trg` BEFORE INSERT ON `t1` FOR EACH ROW PRECEDES `other_trg` INSERT INTO `log_t` VALUES (1)"},
+		{"CREATE TRIGGER db1.trg AFTER INSERT ON db1.t1 FOR EACH ROW INSERT INTO db2.log_t VALUES (NEW.id, NEW.name)", true,
+			"CREATE TRIGGER `db1`.`trg` AFTER INSERT ON `db1`.`t1` FOR EACH ROW INSERT INTO `db2`.`log_t` VALUES (`NEW`.`id`,`NEW`.`name`)"},
+		{"DROP TRIGGER trg", true, "DROP TRIGGER `trg`"},
+		{"DROP TRIGGER IF EXISTS trg", true, "DROP TRIGGER IF EXISTS `trg`"},
+		{"DROP TRIGGER IF EXISTS db1.trg", true, "DROP TRIGGER IF EXISTS `db1`.`trg`"},
+		// BEGIN ... END compound statement is not supported yet.
+		{"CREATE TRIGGER trg BEFORE INSERT ON t1 FOR EACH ROW BEGIN INSERT INTO log_t VALUES (NEW.id); END", false, ""},
+		// OR REPLACE is not allowed for CREATE TRIGGER.
+		{"CREATE OR REPLACE TRIGGER trg BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO log_t VALUES (1)", false, ""},
+		// ALGORITHM is not allowed for CREATE TRIGGER.
+		{"CREATE ALGORITHM=MERGE TRIGGER trg BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO log_t VALUES (1)", false, ""},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	st, err := parser.ParseOneStmt("CREATE DEFINER='admin'@'localhost' TRIGGER trg BEFORE INSERT ON t1 FOR EACH ROW INSERT INTO log_t VALUES (NEW.id)", "", "")
+	c.Assert(err, IsNil)
+	createTrigger := st.(*ast.CreateTriggerStmt)
+	c.Assert(createTrigger.Definer.Username, Equals, "admin")
+	c.Assert(createTrigger.Definer.Hostname, Equals, "localhost")
+	c.Assert(createTrigger.Name.Name.L, Equals, "trg")
+	c.Assert(createTrigger.Timing, Equals, ast.TriggerTimingBefore)
+	c.Assert(createTrigger.Event, Equals, ast.TriggerEventInsert)
+	c.Assert(createTrigger.Table.Name.L, Equals, "t1")
+	c.Assert(createTrigger.Order, IsNil)
+	c.Assert(createTrigger.IfNotExists, IsFalse)
+	_, ok := createTrigger.Body.(*ast.InsertStmt)
+	c.Assert(ok, IsTrue)
+
+	st, err = parser.ParseOneStmt("CREATE TRIGGER IF NOT EXISTS trg AFTER DELETE ON t1 FOR EACH ROW FOLLOWS trg2 DELETE FROM log_t WHERE id = OLD.id", "", "")
+	c.Assert(err, IsNil)
+	createTrigger = st.(*ast.CreateTriggerStmt)
+	c.Assert(createTrigger.IfNotExists, IsTrue)
+	c.Assert(createTrigger.Timing, Equals, ast.TriggerTimingAfter)
+	c.Assert(createTrigger.Event, Equals, ast.TriggerEventDelete)
+	c.Assert(createTrigger.Order, NotNil)
+	c.Assert(createTrigger.Order.IsFollows, IsTrue)
+	c.Assert(createTrigger.Order.OtherTrigger.Name.L, Equals, "trg2")
+	_, ok = createTrigger.Body.(*ast.DeleteStmt)
+	c.Assert(ok, IsTrue)
+
+	st, err = parser.ParseOneStmt("DROP TRIGGER IF EXISTS db1.trg", "", "")
+	c.Assert(err, IsNil)
+	dropTrigger := st.(*ast.DropTriggerStmt)
+	c.Assert(dropTrigger.IfExists, IsTrue)
+	c.Assert(dropTrigger.Name.Schema.L, Equals, "db1")
+	c.Assert(dropTrigger.Name.Name.L, Equals, "trg")
+}
+
 func (s *testParserSuite) TestExpression(c *C) {
 	table := []testCase{
 		// sign expression
@@ -5799,6 +5944,131 @@ func (s *testParserSuite) TestCharset(c *C) {
 	st, err = parser.ParseOneStmt("ALTER DATABASE DEFAULT CHAR SET = utf8mb4", "", "")
 	c.Assert(err, IsNil)
 	c.Assert(st.(*ast.AlterDatabaseStmt), NotNil)
+}
+
+func (s *testParserSuite) TestAlterDatabaseReadOnly(c *C) {
+	table := []testCase{
+		{"alter database shopeepay_log_az_dr_sg_db read only = 1", true, "ALTER DATABASE `shopeepay_log_az_dr_sg_db` READ ONLY = 1"},
+		{"alter database db1 read only = 0", true, "ALTER DATABASE `db1` READ ONLY = 0"},
+		{"alter database db1 read only 1", true, "ALTER DATABASE `db1` READ ONLY = 1"},
+		{"alter database db1 read only = default", true, "ALTER DATABASE `db1` READ ONLY = DEFAULT"},
+		{"alter database db1 read only default", true, "ALTER DATABASE `db1` READ ONLY = DEFAULT"},
+		{"alter database db1 read only = 2", true, "ALTER DATABASE `db1` READ ONLY = 2"},
+		{"alter schema db1 read only = 1", true, "ALTER DATABASE `db1` READ ONLY = 1"},
+		{"alter database read only = 1", true, "ALTER DATABASE READ ONLY = 1"},
+		{"alter database db1 read only = '1'", false, ""},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	st, err := parser.ParseOneStmt("alter database shopeepay_log_az_dr_sg_db read only = 1", "", "")
+	c.Assert(err, IsNil)
+	alterDB := st.(*ast.AlterDatabaseStmt)
+	c.Assert(alterDB.Name, Equals, "shopeepay_log_az_dr_sg_db")
+	c.Assert(alterDB.Options, HasLen, 1)
+	c.Assert(alterDB.Options[0].Tp, Equals, ast.DatabaseOptionReadOnly)
+	c.Assert(alterDB.Options[0].Value, Equals, "1")
+
+	st, err = parser.ParseOneStmt("alter database db1 character set utf8mb4 read only = 1", "", "")
+	c.Assert(err, IsNil)
+	alterDB = st.(*ast.AlterDatabaseStmt)
+	c.Assert(alterDB.Options, HasLen, 2)
+	c.Assert(alterDB.Options[0].Tp, Equals, ast.DatabaseOptionCharset)
+	c.Assert(alterDB.Options[1].Tp, Equals, ast.DatabaseOptionReadOnly)
+}
+
+func (s *testParserSuite) TestUTF8MB3AndCollations(c *C) {
+	table := []testCase{
+		// utf8mb3 charset
+		{"CREATE TABLE t1 (c varchar(10) CHARACTER SET utf8mb3)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) CHARACTER SET UTF8MB3)"},
+		{"CREATE TABLE t1 (c varchar(10) CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) CHARACTER SET UTF8MB3 COLLATE utf8mb3_general_ci)"},
+		{"CREATE TABLE t1 (c varchar(10)) DEFAULT CHARSET=utf8mb3", true, "CREATE TABLE `t1` (`c` VARCHAR(10)) DEFAULT CHARACTER SET = UTF8MB3"},
+		{"CREATE TABLE t1 (c varchar(10)) DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_bin", true, "CREATE TABLE `t1` (`c` VARCHAR(10)) DEFAULT CHARACTER SET = UTF8MB3 DEFAULT COLLATE = UTF8MB3_BIN"},
+		{"SET NAMES utf8mb3", true, "SET NAMES 'utf8mb3'"},
+		{"SET NAMES utf8mb3 COLLATE utf8mb3_unicode_ci", true, "SET NAMES 'utf8mb3' COLLATE 'utf8mb3_unicode_ci'"},
+		{"SELECT _utf8mb3'abc'", true, "SELECT _UTF8MB3'abc'"},
+		// utf8mb3 collations
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_bin)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_bin)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_general_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_general_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_unicode_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_unicode_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_czech_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_czech_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_danish_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_danish_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_esperanto_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_esperanto_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_estonian_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_estonian_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_german2_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_german2_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_croatian_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_croatian_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_hungarian_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_hungarian_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_icelandic_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_icelandic_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_latvian_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_latvian_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_lithuanian_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_lithuanian_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_persian_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_persian_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_polish_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_polish_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_roman_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_roman_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_romanian_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_romanian_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_sinhala_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_sinhala_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_slovak_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_slovak_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_slovenian_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_slovenian_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_spanish_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_spanish_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_spanish2_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_spanish2_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_swedish_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_swedish_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_turkish_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_turkish_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_unicode_520_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_unicode_520_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_vietnamese_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_vietnamese_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_general_mysql500_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb3_general_mysql500_ci)"},
+		// utf8mb4 collations of MySQL 8.0
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_0900_as_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_0900_as_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_0900_bin)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_0900_bin)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_de_pb_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_de_pb_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_de_pb_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_de_pb_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_is_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_is_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_is_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_is_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_lv_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_lv_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_lv_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_lv_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_ro_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_ro_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_ro_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_ro_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_sl_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_sl_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_sl_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_sl_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_pl_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_pl_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_pl_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_pl_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_et_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_et_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_et_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_et_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_es_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_es_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_es_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_es_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_sv_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_sv_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_sv_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_sv_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_tr_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_tr_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_tr_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_tr_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_cs_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_cs_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_da_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_da_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_da_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_da_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_lt_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_lt_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_lt_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_lt_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_sk_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_sk_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_sk_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_sk_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_es_trad_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_es_trad_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_es_trad_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_es_trad_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_la_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_la_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_la_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_la_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_eo_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_eo_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_eo_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_eo_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_hu_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_hu_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_hu_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_hu_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_hr_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_hr_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_hr_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_hr_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_vi_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_vi_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_vi_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_vi_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_ja_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_ja_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_ja_0900_as_cs_ks)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_ja_0900_as_cs_ks)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_ru_0900_ai_ci)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_ru_0900_ai_ci)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_ru_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_ru_0900_as_cs)"},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_zh_0900_as_cs)", true, "CREATE TABLE `t1` (`c` VARCHAR(10) COLLATE utf8mb4_zh_0900_as_cs)"},
+		// unknown collation still rejected
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb4_not_exist_ci)", false, ""},
+		{"CREATE TABLE t1 (c varchar(10) COLLATE utf8mb3_not_exist_ci)", false, ""},
+	}
+	s.RunTest(c, table)
 }
 
 func (s *testParserSuite) TestFulltextSearch(c *C) {
