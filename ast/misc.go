@@ -729,6 +729,7 @@ const (
 	FlushLogs
 	FlushClientErrorsSummary
 	FlushTableStatistics
+	FlushClientStatistics
 )
 
 // LogType is the log type used in FLUSH statement.
@@ -814,6 +815,8 @@ func (n *FlushStmt) Restore(ctx *format.RestoreCtx) error {
 		ctx.WriteKeyWord("CLIENT_ERRORS_SUMMARY")
 	case FlushTableStatistics:
 		ctx.WriteKeyWord("TABLE_STATISTICS")
+	case FlushClientStatistics:
+		ctx.WriteKeyWord("CLIENT_STATISTICS")
 	default:
 		return errors.New("Unsupported type of FlushStmt")
 	}

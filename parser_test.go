@@ -1357,6 +1357,9 @@ func (s *testParserSuite) TestFlushTableStatistics(c *C) {
 		{"FLUSH TABLE_STATISTICS", true, "FLUSH TABLE_STATISTICS"},
 		{"FLUSH NO_WRITE_TO_BINLOG TABLE_STATISTICS", true, "FLUSH NO_WRITE_TO_BINLOG TABLE_STATISTICS"},
 		{"FLUSH LOCAL TABLE_STATISTICS", true, "FLUSH NO_WRITE_TO_BINLOG TABLE_STATISTICS"},
+		{"FLUSH CLIENT_STATISTICS", true, "FLUSH CLIENT_STATISTICS"},
+		{"FLUSH NO_WRITE_TO_BINLOG CLIENT_STATISTICS", true, "FLUSH NO_WRITE_TO_BINLOG CLIENT_STATISTICS"},
+		{"FLUSH LOCAL CLIENT_STATISTICS", true, "FLUSH NO_WRITE_TO_BINLOG CLIENT_STATISTICS"},
 	}
 	s.RunTest(c, table)
 
@@ -1371,6 +1374,18 @@ func (s *testParserSuite) TestFlushTableStatistics(c *C) {
 	c.Assert(err, IsNil)
 	flushStmt = stmt[0].(*ast.FlushStmt)
 	c.Assert(flushStmt.Tp, Equals, ast.FlushTableStatistics)
+	c.Assert(flushStmt.NoWriteToBinLog, IsTrue)
+
+	stmt, _, err = parser.Parse("flush client_statistics", "", "")
+	c.Assert(err, IsNil)
+	flushStmt = stmt[0].(*ast.FlushStmt)
+	c.Assert(flushStmt.Tp, Equals, ast.FlushClientStatistics)
+	c.Assert(flushStmt.NoWriteToBinLog, IsFalse)
+
+	stmt, _, err = parser.Parse("flush local client_statistics", "", "")
+	c.Assert(err, IsNil)
+	flushStmt = stmt[0].(*ast.FlushStmt)
+	c.Assert(flushStmt.Tp, Equals, ast.FlushClientStatistics)
 	c.Assert(flushStmt.NoWriteToBinLog, IsTrue)
 }
 

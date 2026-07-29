@@ -338,6 +338,7 @@ import (
 	cleanup               "CLEANUP"
 	client                "CLIENT"
 	clientErrorsSummary   "CLIENT_ERRORS_SUMMARY"
+	clientStatistics      "CLIENT_STATISTICS"
 	coalesce              "COALESCE"
 	collation             "COLLATION"
 	columnFormat          "COLUMN_FORMAT"
@@ -6372,6 +6373,7 @@ UnReservedKeyword:
 |	"POLICY"
 |	"WAIT"
 |	"CLIENT_ERRORS_SUMMARY"
+|	"CLIENT_STATISTICS"
 |	"TABLE_STATISTICS"
 |	"BEFORE"
 |	"EACH"
@@ -11131,6 +11133,12 @@ FlushOption:
 	{
 		$$ = &ast.FlushStmt{
 			Tp: ast.FlushClientErrorsSummary,
+		}
+	}
+|	"CLIENT_STATISTICS"
+	{
+		$$ = &ast.FlushStmt{
+			Tp: ast.FlushClientStatistics,
 		}
 	}
 |	"TABLE_STATISTICS"
