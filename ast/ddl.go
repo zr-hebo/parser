@@ -45,6 +45,12 @@ var (
 	_ DDLNode = &OptimizeTableStmt{}
 	_ DDLNode = &CreateTriggerStmt{}
 	_ DDLNode = &DropTriggerStmt{}
+	_ DDLNode = &CheckTableStmt{}
+	_ DDLNode = &ChecksumTableStmt{}
+	_ DDLNode = &AlterViewStmt{}
+	_ DDLNode = &CreateTablespaceStmt{}
+	_ DDLNode = &AlterTablespaceStmt{}
+	_ DDLNode = &DropTablespaceStmt{}
 
 	_ Node = &AlterTableSpec{}
 	_ Node = &ColumnDef{}
@@ -53,6 +59,7 @@ var (
 	_ Node = &Constraint{}
 	_ Node = &IndexPartSpecification{}
 	_ Node = &ReferenceDef{}
+	_ Node = &TablespaceOption{}
 )
 
 // CharsetOpt is used for parsing charset option from SQL.
@@ -1482,6 +1489,96 @@ func (n *CreateViewStmt) Accept(v Visitor) (Node, bool) {
 	return v.Leave(n)
 }
 
+// AlterViewStmt is a statement to alter a view definition.
+// See https://dev.mysql.com/doc/refman/8.0/en/alter-view.html
+type AlterViewStmt struct {
+	ddlNode
+
+	ViewName    *TableName
+	Cols        []model.CIStr
+	Select      StmtNode
+	Algorithm   model.ViewAlgorithm
+	Definer     *auth.UserIdentity
+	Security    model.ViewSecurity
+	CheckOption model.ViewCheckOption
+}
+
+// Restore implements Node interface.
+func (n *AlterViewStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("ALTER ")
+	if n.Algorithm != model.AlgorithmUndefined {
+		ctx.WriteKeyWord("ALGORITHM")
+		ctx.WritePlain(" = ")
+		ctx.WriteKeyWord(n.Algorithm.String())
+		ctx.WritePlain(" ")
+	}
+	if n.Definer != nil && !n.Definer.CurrentUser {
+		ctx.WriteKeyWord("DEFINER")
+		ctx.WritePlain(" = ")
+		ctx.WriteName(n.Definer.Username)
+		if n.Definer.Hostname != "" {
+			ctx.WritePlain("@")
+			ctx.WriteName(n.Definer.Hostname)
+		}
+		ctx.WritePlain(" ")
+	}
+	if n.Security != model.SecurityDefiner {
+		ctx.WriteKeyWord("SQL SECURITY ")
+		ctx.WriteKeyWord(n.Security.String())
+		ctx.WritePlain(" ")
+	}
+	ctx.WriteKeyWord("VIEW ")
+
+	if err := n.ViewName.Restore(ctx); err != nil {
+		return errors.Annotate(err, "An error occurred while restore AlterViewStmt.ViewName")
+	}
+
+	for i, col := range n.Cols {
+		if i == 0 {
+			ctx.WritePlain(" (")
+		} else {
+			ctx.WritePlain(",")
+		}
+		ctx.WriteName(col.O)
+		if i == len(n.Cols)-1 {
+			ctx.WritePlain(")")
+		}
+	}
+
+	ctx.WriteKeyWord(" AS ")
+
+	if err := n.Select.Restore(ctx); err != nil {
+		return errors.Annotate(err, "An error occurred while restore AlterViewStmt.Select")
+	}
+
+	if n.CheckOption != model.CheckOptionCascaded {
+		ctx.WriteKeyWord(" WITH ")
+		ctx.WriteKeyWord(n.CheckOption.String())
+		ctx.WriteKeyWord(" CHECK OPTION")
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *AlterViewStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*AlterViewStmt)
+	node, ok := n.ViewName.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.ViewName = node.(*TableName)
+	selnode, ok := n.Select.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.Select = selnode.(StmtNode)
+	return v.Leave(n)
+}
+
 // CreatePlacementPolicyStmt is a statement to create a policy.
 type CreatePlacementPolicyStmt struct {
 	ddlNode
@@ -1876,11 +1973,28 @@ func (n *CleanupTableLockStmt) Restore(ctx *format.RestoreCtx) error {
 	return nil
 }
 
+// RepairTableOptionType is the option type of MySQL REPAIR TABLE statement.
+type RepairTableOptionType int
+
+// MySQL REPAIR TABLE options.
+const (
+	RepairTableOptionNone RepairTableOptionType = iota
+	RepairTableQuick
+	RepairTableExtended
+	RepairTableUseFrm
+)
+
 // RepairTableStmt is a statement to repair tableInfo.
+// The TiDB extension form is ADMIN REPAIR TABLE tbl_name CreateTableStmt,
+// while the MySQL form is REPAIR TABLE tbl_name [, tbl_name] ... [options].
 type RepairTableStmt struct {
 	ddlNode
+	// Fields for the TiDB ADMIN REPAIR TABLE statement.
 	Table      *TableName
 	CreateStmt *CreateTableStmt
+	// Fields for the MySQL REPAIR TABLE statement.
+	Tables  []*TableName
+	Options []RepairTableOptionType
 }
 
 // Accept implements Node Accept interface.
@@ -1890,6 +2004,16 @@ func (n *RepairTableStmt) Accept(v Visitor) (Node, bool) {
 		return v.Leave(newNode)
 	}
 	n = newNode.(*RepairTableStmt)
+	if len(n.Tables) > 0 {
+		for i, t := range n.Tables {
+			node, ok := t.Accept(v)
+			if !ok {
+				return n, false
+			}
+			n.Tables[i] = node.(*TableName)
+		}
+		return v.Leave(n)
+	}
 	node, ok := n.Table.Accept(v)
 	if !ok {
 		return n, false
@@ -1905,6 +2029,28 @@ func (n *RepairTableStmt) Accept(v Visitor) (Node, bool) {
 
 // Restore implements Node interface.
 func (n *RepairTableStmt) Restore(ctx *format.RestoreCtx) error {
+	if len(n.Tables) > 0 {
+		ctx.WriteKeyWord("REPAIR TABLE ")
+		for i, t := range n.Tables {
+			if i != 0 {
+				ctx.WritePlain(", ")
+			}
+			if err := t.Restore(ctx); err != nil {
+				return errors.Annotatef(err, "An error occurred while restore RepairTableStmt.Tables[%d]", i)
+			}
+		}
+		for _, opt := range n.Options {
+			switch opt {
+			case RepairTableQuick:
+				ctx.WriteKeyWord(" QUICK")
+			case RepairTableExtended:
+				ctx.WriteKeyWord(" EXTENDED")
+			case RepairTableUseFrm:
+				ctx.WriteKeyWord(" USE_FRM")
+			}
+		}
+		return nil
+	}
 	ctx.WriteKeyWord("ADMIN REPAIR TABLE ")
 	if err := n.Table.Restore(ctx); err != nil {
 		return errors.Annotatef(err, "An error occurred while restore RepairTableStmt.table : [%v]", n.Table)
@@ -1912,6 +2058,132 @@ func (n *RepairTableStmt) Restore(ctx *format.RestoreCtx) error {
 	ctx.WritePlain(" ")
 	if err := n.CreateStmt.Restore(ctx); err != nil {
 		return errors.Annotatef(err, "An error occurred while restore RepairTableStmt.createStmt : [%v]", n.CreateStmt)
+	}
+	return nil
+}
+
+// CheckTableOptionType is the option type of MySQL CHECK TABLE statement.
+type CheckTableOptionType int
+
+// MySQL CHECK TABLE options.
+const (
+	CheckTableOptionNone CheckTableOptionType = iota
+	CheckTableForUpgrade
+	CheckTableQuick
+	CheckTableFast
+	CheckTableMedium
+	CheckTableExtended
+	CheckTableChanged
+)
+
+// CheckTableStmt is a statement to check table.
+// See https://dev.mysql.com/doc/refman/8.0/en/check-table.html
+type CheckTableStmt struct {
+	ddlNode
+
+	Tables  []*TableName
+	Options []CheckTableOptionType
+}
+
+// Accept implements Node Accept interface.
+func (n *CheckTableStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*CheckTableStmt)
+	for i, t := range n.Tables {
+		node, ok := t.Accept(v)
+		if !ok {
+			return n, false
+		}
+		n.Tables[i] = node.(*TableName)
+	}
+	return v.Leave(n)
+}
+
+// Restore implements Node interface.
+func (n *CheckTableStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("CHECK TABLE ")
+	for i, t := range n.Tables {
+		if i != 0 {
+			ctx.WritePlain(", ")
+		}
+		if err := t.Restore(ctx); err != nil {
+			return errors.Annotatef(err, "An error occurred while restore CheckTableStmt.Tables[%d]", i)
+		}
+	}
+	for _, opt := range n.Options {
+		switch opt {
+		case CheckTableForUpgrade:
+			ctx.WriteKeyWord(" FOR UPGRADE")
+		case CheckTableQuick:
+			ctx.WriteKeyWord(" QUICK")
+		case CheckTableFast:
+			ctx.WriteKeyWord(" FAST")
+		case CheckTableMedium:
+			ctx.WriteKeyWord(" MEDIUM")
+		case CheckTableExtended:
+			ctx.WriteKeyWord(" EXTENDED")
+		case CheckTableChanged:
+			ctx.WriteKeyWord(" CHANGED")
+		}
+	}
+	return nil
+}
+
+// ChecksumTableOptionType is the option type of MySQL CHECKSUM TABLE statement.
+type ChecksumTableOptionType int
+
+// MySQL CHECKSUM TABLE options.
+const (
+	ChecksumTableOptionNone ChecksumTableOptionType = iota
+	ChecksumTableQuick
+	ChecksumTableExtended
+)
+
+// ChecksumTableStmt is a statement to checksum table.
+// See https://dev.mysql.com/doc/refman/8.0/en/checksum-table.html
+type ChecksumTableStmt struct {
+	ddlNode
+
+	Tables []*TableName
+	Option ChecksumTableOptionType
+}
+
+// Accept implements Node Accept interface.
+func (n *ChecksumTableStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*ChecksumTableStmt)
+	for i, t := range n.Tables {
+		node, ok := t.Accept(v)
+		if !ok {
+			return n, false
+		}
+		n.Tables[i] = node.(*TableName)
+	}
+	return v.Leave(n)
+}
+
+// Restore implements Node interface.
+func (n *ChecksumTableStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("CHECKSUM TABLE ")
+	for i, t := range n.Tables {
+		if i != 0 {
+			ctx.WritePlain(", ")
+		}
+		if err := t.Restore(ctx); err != nil {
+			return errors.Annotatef(err, "An error occurred while restore ChecksumTableStmt.Tables[%d]", i)
+		}
+	}
+	switch n.Option {
+	case ChecksumTableQuick:
+		ctx.WriteKeyWord(" QUICK")
+	case ChecksumTableExtended:
+		ctx.WriteKeyWord(" EXTENDED")
 	}
 	return nil
 }
@@ -4303,5 +4575,177 @@ func (n *AlterSequenceStmt) Accept(v Visitor) (Node, bool) {
 		return n, false
 	}
 	n.Name = node.(*TableName)
+	return v.Leave(n)
+}
+
+// TablespaceOptionType is the option type of CREATE TABLESPACE statement.
+type TablespaceOptionType int
+
+// CREATE TABLESPACE options.
+const (
+	TablespaceOptionNone TablespaceOptionType = iota
+	TablespaceOptionDataFile
+	TablespaceOptionFileBlockSize
+	TablespaceOptionEncryption
+	TablespaceOptionEngine
+)
+
+// TablespaceOption represents an option of CREATE TABLESPACE statement.
+type TablespaceOption struct {
+	node
+
+	Tp        TablespaceOptionType
+	StrValue  string
+	UintValue uint64
+}
+
+// Restore implements Node interface.
+func (n *TablespaceOption) Restore(ctx *format.RestoreCtx) error {
+	switch n.Tp {
+	case TablespaceOptionDataFile:
+		ctx.WriteKeyWord("ADD DATAFILE ")
+		ctx.WriteString(n.StrValue)
+	case TablespaceOptionFileBlockSize:
+		ctx.WriteKeyWord("FILE_BLOCK_SIZE = ")
+		ctx.WritePlainf("%d", n.UintValue)
+	case TablespaceOptionEncryption:
+		ctx.WriteKeyWord("ENCRYPTION = ")
+		ctx.WriteString(n.StrValue)
+	case TablespaceOptionEngine:
+		ctx.WriteKeyWord("ENGINE = ")
+		ctx.WriteName(n.StrValue)
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *TablespaceOption) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*TablespaceOption)
+	return v.Leave(n)
+}
+
+// CreateTablespaceStmt is a statement to create a tablespace.
+// See https://dev.mysql.com/doc/refman/8.0/en/create-tablespace.html
+type CreateTablespaceStmt struct {
+	ddlNode
+
+	Name    model.CIStr
+	Undo    bool
+	Options []*TablespaceOption
+}
+
+// Restore implements Node interface.
+func (n *CreateTablespaceStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("CREATE ")
+	if n.Undo {
+		ctx.WriteKeyWord("UNDO ")
+	}
+	ctx.WriteKeyWord("TABLESPACE ")
+	ctx.WriteName(n.Name.O)
+	for _, option := range n.Options {
+		ctx.WritePlain(" ")
+		if err := option.Restore(ctx); err != nil {
+			return errors.Annotatef(err, "An error occurred while restore CreateTablespaceStmt.Options")
+		}
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *CreateTablespaceStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*CreateTablespaceStmt)
+	for i, option := range n.Options {
+		node, ok := option.Accept(v)
+		if !ok {
+			return n, false
+		}
+		n.Options[i] = node.(*TablespaceOption)
+	}
+	return v.Leave(n)
+}
+
+// AlterTablespaceStmt is a statement to alter a tablespace.
+// See https://dev.mysql.com/doc/refman/8.0/en/alter-tablespace.html
+type AlterTablespaceStmt struct {
+	ddlNode
+
+	Name      model.CIStr
+	Undo      bool
+	SetActive *bool // non-nil for ALTER UNDO TABLESPACE ... SET {ACTIVE | INACTIVE}
+	RenameTo  model.CIStr
+}
+
+// Restore implements Node interface.
+func (n *AlterTablespaceStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("ALTER ")
+	if n.Undo {
+		ctx.WriteKeyWord("UNDO ")
+	}
+	ctx.WriteKeyWord("TABLESPACE ")
+	ctx.WriteName(n.Name.O)
+	if n.SetActive != nil {
+		ctx.WriteKeyWord(" SET ")
+		if *n.SetActive {
+			ctx.WriteKeyWord("ACTIVE")
+		} else {
+			ctx.WriteKeyWord("INACTIVE")
+		}
+	} else if n.RenameTo.O != "" {
+		ctx.WriteKeyWord(" RENAME TO ")
+		ctx.WriteName(n.RenameTo.O)
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *AlterTablespaceStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*AlterTablespaceStmt)
+	return v.Leave(n)
+}
+
+// DropTablespaceStmt is a statement to drop a tablespace.
+// See https://dev.mysql.com/doc/refman/8.0/en/drop-tablespace.html
+type DropTablespaceStmt struct {
+	ddlNode
+
+	Name   model.CIStr
+	Undo   bool
+	Engine string
+}
+
+// Restore implements Node interface.
+func (n *DropTablespaceStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("DROP ")
+	if n.Undo {
+		ctx.WriteKeyWord("UNDO ")
+	}
+	ctx.WriteKeyWord("TABLESPACE ")
+	ctx.WriteName(n.Name.O)
+	if n.Engine != "" {
+		ctx.WriteKeyWord(" ENGINE = ")
+		ctx.WriteName(n.Engine)
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *DropTablespaceStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*DropTablespaceStmt)
 	return v.Leave(n)
 }

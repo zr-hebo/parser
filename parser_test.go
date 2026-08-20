@@ -1411,6 +1411,275 @@ func (s *testParserSuite) TestOptimizeTable(c *C) {
 	c.Assert(optimizeTable.TableNames[1].Name.L, Equals, "t2")
 }
 
+func (s *testParserSuite) TestCheckTable(c *C) {
+	table := []testCase{
+		{"CHECK TABLE t1", true, "CHECK TABLE `t1`"},
+		{"CHECK TABLE t1, t2", true, "CHECK TABLE `t1`, `t2`"},
+		{"CHECK TABLE db1.t1, db2.t2", true, "CHECK TABLE `db1`.`t1`, `db2`.`t2`"},
+		{"CHECK TABLE t1 FOR UPGRADE", true, "CHECK TABLE `t1` FOR UPGRADE"},
+		{"CHECK TABLE t1 QUICK", true, "CHECK TABLE `t1` QUICK"},
+		{"CHECK TABLE t1 QUICK FAST", true, "CHECK TABLE `t1` QUICK FAST"},
+		{"CHECK TABLE t1 MEDIUM", true, "CHECK TABLE `t1` MEDIUM"},
+		{"CHECK TABLE t1 EXTENDED", true, "CHECK TABLE `t1` EXTENDED"},
+		{"CHECK TABLE t1 CHANGED", true, "CHECK TABLE `t1` CHANGED"},
+		{"CHECK TABLE t1 QUICK EXTENDED CHANGED", true, "CHECK TABLE `t1` QUICK EXTENDED CHANGED"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("check table t1, t2 for upgrade", "", "")
+	c.Assert(err, IsNil)
+	checkTable := stmt[0].(*ast.CheckTableStmt)
+	c.Assert(checkTable.Tables, HasLen, 2)
+	c.Assert(checkTable.Tables[0].Name.L, Equals, "t1")
+	c.Assert(checkTable.Tables[1].Name.L, Equals, "t2")
+	c.Assert(checkTable.Options, DeepEquals, []ast.CheckTableOptionType{ast.CheckTableForUpgrade})
+}
+
+func (s *testParserSuite) TestRepairTableMySQL(c *C) {
+	table := []testCase{
+		{"REPAIR TABLE t1", true, "REPAIR TABLE `t1`"},
+		{"REPAIR TABLE t1, t2", true, "REPAIR TABLE `t1`, `t2`"},
+		{"REPAIR TABLE db1.t1, db2.t2", true, "REPAIR TABLE `db1`.`t1`, `db2`.`t2`"},
+		{"REPAIR TABLE t1 QUICK", true, "REPAIR TABLE `t1` QUICK"},
+		{"REPAIR TABLE t1 EXTENDED", true, "REPAIR TABLE `t1` EXTENDED"},
+		{"REPAIR TABLE t1 USE_FRM", true, "REPAIR TABLE `t1` USE_FRM"},
+		{"REPAIR TABLE t1 QUICK EXTENDED USE_FRM", true, "REPAIR TABLE `t1` QUICK EXTENDED USE_FRM"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("repair table t1, t2 quick extended use_frm", "", "")
+	c.Assert(err, IsNil)
+	repairTable := stmt[0].(*ast.RepairTableStmt)
+	c.Assert(repairTable.Tables, HasLen, 2)
+	c.Assert(repairTable.Tables[0].Name.L, Equals, "t1")
+	c.Assert(repairTable.Tables[1].Name.L, Equals, "t2")
+	c.Assert(repairTable.Options, DeepEquals, []ast.RepairTableOptionType{
+		ast.RepairTableQuick, ast.RepairTableExtended, ast.RepairTableUseFrm,
+	})
+}
+
+func (s *testParserSuite) TestChecksumTableMySQL(c *C) {
+	table := []testCase{
+		{"CHECKSUM TABLE t1", true, "CHECKSUM TABLE `t1`"},
+		{"CHECKSUM TABLE t1, t2", true, "CHECKSUM TABLE `t1`, `t2`"},
+		{"CHECKSUM TABLE db1.t1, db2.t2", true, "CHECKSUM TABLE `db1`.`t1`, `db2`.`t2`"},
+		{"CHECKSUM TABLE t1 QUICK", true, "CHECKSUM TABLE `t1` QUICK"},
+		{"CHECKSUM TABLE t1 EXTENDED", true, "CHECKSUM TABLE `t1` EXTENDED"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("checksum table t1 quick", "", "")
+	c.Assert(err, IsNil)
+	checksumTable := stmt[0].(*ast.ChecksumTableStmt)
+	c.Assert(checksumTable.Tables, HasLen, 1)
+	c.Assert(checksumTable.Option, Equals, ast.ChecksumTableQuick)
+}
+
+func (s *testParserSuite) TestAlterView(c *C) {
+	table := []testCase{
+		{"ALTER VIEW v1 AS SELECT 1", true, "ALTER VIEW `v1` AS SELECT 1"},
+		{"ALTER VIEW v1 AS SELECT c1 FROM t1", true, "ALTER VIEW `v1` AS SELECT `c1` FROM `t1`"},
+		{"ALTER VIEW v1 (a) AS SELECT c1 FROM t1", true, "ALTER VIEW `v1` (`a`) AS SELECT `c1` FROM `t1`"},
+		{"ALTER VIEW v1 AS SELECT c1 FROM t1 WITH LOCAL CHECK OPTION", true, "ALTER VIEW `v1` AS SELECT `c1` FROM `t1` WITH LOCAL CHECK OPTION"},
+		{"ALTER VIEW v1 AS SELECT c1 FROM t1 WITH CASCADED CHECK OPTION", true, "ALTER VIEW `v1` AS SELECT `c1` FROM `t1`"},
+		{"ALTER ALGORITHM = MERGE VIEW v1 AS SELECT 1", true, "ALTER ALGORITHM = MERGE VIEW `v1` AS SELECT 1"},
+		{"ALTER ALGORITHM = TEMPTABLE DEFINER = 'u'@'h' SQL SECURITY INVOKER VIEW v1 AS SELECT 1", true, "ALTER ALGORITHM = TEMPTABLE DEFINER = `u`@`h` SQL SECURITY INVOKER VIEW `v1` AS SELECT 1"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("alter algorithm = merge view v1 as select 1", "", "")
+	c.Assert(err, IsNil)
+	alterView := stmt[0].(*ast.AlterViewStmt)
+	c.Assert(alterView.ViewName.Name.L, Equals, "v1")
+	c.Assert(alterView.Algorithm, Equals, model.AlgorithmMerge)
+	c.Assert(alterView.CheckOption, Equals, model.CheckOptionCascaded)
+}
+
+func (s *testParserSuite) TestInstallUninstallComponentPlugin(c *C) {
+	table := []testCase{
+		{"INSTALL COMPONENT 'file://component_query_attributes'", true, "INSTALL COMPONENT 'file://component_query_attributes'"},
+		{"INSTALL COMPONENT 'file://c1', 'file://c2'", true, "INSTALL COMPONENT 'file://c1', 'file://c2'"},
+		{"UNINSTALL COMPONENT 'file://component_query_attributes'", true, "UNINSTALL COMPONENT 'file://component_query_attributes'"},
+		{"UNINSTALL COMPONENT 'file://c1', 'file://c2'", true, "UNINSTALL COMPONENT 'file://c1', 'file://c2'"},
+		{"INSTALL PLUGIN validate_password SONAME 'validate_password.so'", true, "INSTALL PLUGIN `validate_password` SONAME 'validate_password.so'"},
+		{"INSTALL PLUGIN p SONAME 'p.so'", true, "INSTALL PLUGIN `p` SONAME 'p.so'"},
+		{"UNINSTALL PLUGIN validate_password", true, "UNINSTALL PLUGIN `validate_password`"},
+		{"UNINSTALL PLUGIN p", true, "UNINSTALL PLUGIN `p`"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("install component 'file://c1', 'file://c2'", "", "")
+	c.Assert(err, IsNil)
+	install := stmt[0].(*ast.InstallStmt)
+	c.Assert(install.Tp, Equals, ast.InstallComponentType)
+	c.Assert(install.Components, DeepEquals, []string{"file://c1", "file://c2"})
+
+	stmt, _, err = parser.Parse("uninstall plugin validate_password", "", "")
+	c.Assert(err, IsNil)
+	uninstall := stmt[0].(*ast.UninstallStmt)
+	c.Assert(uninstall.Tp, Equals, ast.UninstallPluginType)
+	c.Assert(uninstall.Name, Equals, "validate_password")
+}
+
+func (s *testParserSuite) TestResourceGroup(c *C) {
+	table := []testCase{
+		{"CREATE RESOURCE GROUP rg TYPE = USER VCPU = 0-3", true, "CREATE RESOURCE GROUP `rg` TYPE = USER VCPU = 0-3"},
+		{"CREATE RESOURCE GROUP rg TYPE=SYSTEM", true, "CREATE RESOURCE GROUP `rg` TYPE = SYSTEM"},
+		{"CREATE RESOURCE GROUP rg TYPE=USER VCPU=0,2-4", true, "CREATE RESOURCE GROUP `rg` TYPE = USER VCPU = 0, 2-4"},
+		{"CREATE RESOURCE GROUP rg TYPE=USER VCPU=0-3 THREAD_PRIORITY=10 ENABLE", true, "CREATE RESOURCE GROUP `rg` TYPE = USER VCPU = 0-3 THREAD_PRIORITY = 10 ENABLE"},
+		{"CREATE RESOURCE GROUP rg TYPE=SYSTEM DISABLE", true, "CREATE RESOURCE GROUP `rg` TYPE = SYSTEM DISABLE"},
+		{"ALTER RESOURCE GROUP rg VCPU = 2-5", true, "ALTER RESOURCE GROUP `rg` VCPU = 2-5"},
+		{"ALTER RESOURCE GROUP rg VCPU=2,4,6-8", true, "ALTER RESOURCE GROUP `rg` VCPU = 2, 4, 6-8"},
+		{"ALTER RESOURCE GROUP rg THREAD_PRIORITY=5 ENABLE", true, "ALTER RESOURCE GROUP `rg` THREAD_PRIORITY = 5 ENABLE"},
+		{"ALTER RESOURCE GROUP rg DISABLE FORCE", true, "ALTER RESOURCE GROUP `rg` DISABLE FORCE"},
+		{"DROP RESOURCE GROUP rg", true, "DROP RESOURCE GROUP `rg`"},
+		{"DROP RESOURCE GROUP rg FORCE", true, "DROP RESOURCE GROUP `rg` FORCE"},
+		{"SET RESOURCE GROUP rg FOR 'user'@'%'", true, "SET RESOURCE GROUP `rg` FOR `user`@`%`"},
+		{"SET RESOURCE GROUP rg FOR 'user1'@'%', 'user2'@'localhost'", true, "SET RESOURCE GROUP `rg` FOR `user1`@`%`, `user2`@`localhost`"},
+		{"SET RESOURCE GROUP rg FOR 12, 345", true, "SET RESOURCE GROUP `rg` FOR 12, 345"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("create resource group rg type = user vcpu = 0-3", "", "")
+	c.Assert(err, IsNil)
+	create := stmt[0].(*ast.CreateResourceGroupStmt)
+	c.Assert(create.Name.L, Equals, "rg")
+	c.Assert(create.Type, Equals, "USER")
+	c.Assert(create.VcpuList, HasLen, 1)
+	c.Assert(create.VcpuList[0].Start, Equals, int64(0))
+	c.Assert(create.VcpuList[0].End, Equals, int64(3))
+
+	stmt, _, err = parser.Parse("set resource group rg for 'user'@'%'", "", "")
+	c.Assert(err, IsNil)
+	set := stmt[0].(*ast.SetResourceGroupStmt)
+	c.Assert(set.UserList, HasLen, 1)
+	c.Assert(set.UserList[0].Username, Equals, "user")
+	c.Assert(set.UserList[0].Hostname, Equals, "%")
+
+	stmt, _, err = parser.Parse("set resource group rg for 12, 345", "", "")
+	c.Assert(err, IsNil)
+	set = stmt[0].(*ast.SetResourceGroupStmt)
+	c.Assert(set.ThreadIDs, DeepEquals, []int64{12, 345})
+}
+
+func (s *testParserSuite) TestTablespace(c *C) {
+	table := []testCase{
+		{"CREATE TABLESPACE ts ADD DATAFILE 'ts.ibd'", true, "CREATE TABLESPACE `ts` ADD DATAFILE 'ts.ibd'"},
+		{"CREATE TABLESPACE ts ADD DATAFILE 'ts.ibd' FILE_BLOCK_SIZE = 16384", true, "CREATE TABLESPACE `ts` ADD DATAFILE 'ts.ibd' FILE_BLOCK_SIZE = 16384"},
+		{"CREATE TABLESPACE ts ADD DATAFILE 'ts.ibd' ENCRYPTION = 'N'", true, "CREATE TABLESPACE `ts` ADD DATAFILE 'ts.ibd' ENCRYPTION = 'N'"},
+		{"CREATE TABLESPACE ts ADD DATAFILE 'ts.ibd' ENGINE = InnoDB", true, "CREATE TABLESPACE `ts` ADD DATAFILE 'ts.ibd' ENGINE = `InnoDB`"},
+		{"CREATE UNDO TABLESPACE uts ADD DATAFILE 'uts.ibu'", true, "CREATE UNDO TABLESPACE `uts` ADD DATAFILE 'uts.ibu'"},
+		{"ALTER UNDO TABLESPACE uts SET INACTIVE", true, "ALTER UNDO TABLESPACE `uts` SET INACTIVE"},
+		{"ALTER UNDO TABLESPACE uts SET ACTIVE", true, "ALTER UNDO TABLESPACE `uts` SET ACTIVE"},
+		{"ALTER TABLESPACE ts RENAME TO ts2", true, "ALTER TABLESPACE `ts` RENAME TO `ts2`"},
+		{"DROP TABLESPACE ts", true, "DROP TABLESPACE `ts`"},
+		{"DROP TABLESPACE ts ENGINE = InnoDB", true, "DROP TABLESPACE `ts` ENGINE = `InnoDB`"},
+		{"DROP UNDO TABLESPACE uts", true, "DROP UNDO TABLESPACE `uts`"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("create undo tablespace uts add datafile 'uts.ibu'", "", "")
+	c.Assert(err, IsNil)
+	create := stmt[0].(*ast.CreateTablespaceStmt)
+	c.Assert(create.Undo, IsTrue)
+	c.Assert(create.Name.L, Equals, "uts")
+	c.Assert(create.Options, HasLen, 1)
+	c.Assert(create.Options[0].Tp, Equals, ast.TablespaceOptionDataFile)
+	c.Assert(create.Options[0].StrValue, Equals, "uts.ibu")
+
+	stmt, _, err = parser.Parse("alter undo tablespace uts set inactive", "", "")
+	c.Assert(err, IsNil)
+	alter := stmt[0].(*ast.AlterTablespaceStmt)
+	c.Assert(alter.Undo, IsTrue)
+	c.Assert(alter.SetActive, NotNil)
+	c.Assert(*alter.SetActive, IsFalse)
+}
+
+func (s *testParserSuite) TestAlterInstanceRotate(c *C) {
+	table := []testCase{
+		{"ALTER INSTANCE ROTATE INNODB MASTER KEY", true, "ALTER INSTANCE ROTATE INNODB MASTER KEY"},
+		{"ALTER INSTANCE ROTATE BINLOG MASTER KEY", true, "ALTER INSTANCE ROTATE BINLOG MASTER KEY"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("alter instance rotate innodb master key", "", "")
+	c.Assert(err, IsNil)
+	alterInstance := stmt[0].(*ast.AlterInstanceStmt)
+	c.Assert(alterInstance.RotateInnoDBMasterKey, IsTrue)
+	c.Assert(alterInstance.ReloadTLS, IsFalse)
+}
+
+func (s *testParserSuite) TestLockUnlockInstance(c *C) {
+	table := []testCase{
+		{"LOCK INSTANCE FOR BACKUP", true, "LOCK INSTANCE FOR BACKUP"},
+		{"UNLOCK INSTANCE", true, "UNLOCK INSTANCE"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("lock instance for backup", "", "")
+	c.Assert(err, IsNil)
+	c.Assert(stmt[0], FitsTypeOf, &ast.LockInstanceStmt{})
+
+	stmt, _, err = parser.Parse("unlock instance", "", "")
+	c.Assert(err, IsNil)
+	c.Assert(stmt[0], FitsTypeOf, &ast.UnlockInstanceStmt{})
+}
+
+func (s *testParserSuite) TestClone(c *C) {
+	table := []testCase{
+		{"CLONE LOCAL DATA DIRECTORY = '/tmp/clone'", true, "CLONE LOCAL DATA DIRECTORY = '/tmp/clone'"},
+		{"CLONE LOCAL DATA DIRECTORY '/tmp/clone'", true, "CLONE LOCAL DATA DIRECTORY = '/tmp/clone'"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("clone local data directory = '/data/clone'", "", "")
+	c.Assert(err, IsNil)
+	clone := stmt[0].(*ast.CloneStmt)
+	c.Assert(clone.DataDirectory, Equals, "/data/clone")
+}
+
+func (s *testParserSuite) TestServerStatements(c *C) {
+	table := []testCase{
+		{"CREATE SERVER s FOREIGN DATA WRAPPER mysql OPTIONS (USER 'x')", true, "CREATE SERVER `s` FOREIGN DATA WRAPPER `mysql` OPTIONS (USER 'x')"},
+		{"CREATE SERVER s FOREIGN DATA WRAPPER mysql OPTIONS (HOST '127.0.0.1', DATABASE 'db', PORT 3306)", true, "CREATE SERVER `s` FOREIGN DATA WRAPPER `mysql` OPTIONS (HOST '127.0.0.1', DATABASE 'db', PORT 3306)"},
+		{"CREATE SERVER s FOREIGN DATA WRAPPER mysql OPTIONS (USER 'x', PASSWORD 'p', SOCKET '', OWNER 'o')", true, "CREATE SERVER `s` FOREIGN DATA WRAPPER `mysql` OPTIONS (USER 'x', PASSWORD 'p', SOCKET '', OWNER 'o')"},
+		{"ALTER SERVER s OPTIONS (USER 'x')", true, "ALTER SERVER `s` OPTIONS (USER 'x')"},
+		{"ALTER SERVER s OPTIONS (PORT 3307)", true, "ALTER SERVER `s` OPTIONS (PORT 3307)"},
+		{"DROP SERVER s", true, "DROP SERVER `s`"},
+		{"DROP SERVER IF EXISTS s", true, "DROP SERVER IF EXISTS `s`"},
+	}
+	s.RunTest(c, table)
+
+	parser := parser.New()
+	stmt, _, err := parser.Parse("create server s foreign data wrapper mysql options (host 'h', port 3306)", "", "")
+	c.Assert(err, IsNil)
+	create := stmt[0].(*ast.CreateServerStmt)
+	c.Assert(create.Name.L, Equals, "s")
+	c.Assert(create.Wrapper.L, Equals, "mysql")
+	c.Assert(create.Options, HasLen, 2)
+	c.Assert(create.Options[0].Name, Equals, "host")
+	c.Assert(create.Options[0].Numeric, IsFalse)
+	c.Assert(create.Options[1].Name, Equals, "port")
+	c.Assert(create.Options[1].Numeric, IsTrue)
+	c.Assert(create.Options[1].Value, Equals, "3306")
+
+	stmt, _, err = parser.Parse("drop server if exists s", "", "")
+	c.Assert(err, IsNil)
+	drop := stmt[0].(*ast.DropServerStmt)
+	c.Assert(drop.IfExists, IsTrue)
+	c.Assert(drop.Name.L, Equals, "s")
+}
+
 func (s *testParserSuite) TestJSONValue(c *C) {
 	table := []testCase{
 		{"SELECT JSON_VALUE(j, '$.a') FROM t", true, "SELECT JSON_VALUE(`j`, _UTF8MB4'$.a') FROM `t`"},

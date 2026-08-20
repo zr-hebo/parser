@@ -55,6 +55,18 @@ var (
 	_ StmtNode = &RenameUserStmt{}
 	_ StmtNode = &HelpStmt{}
 	_ StmtNode = &PlanRecreatorStmt{}
+	_ StmtNode = &InstallStmt{}
+	_ StmtNode = &UninstallStmt{}
+	_ StmtNode = &CreateResourceGroupStmt{}
+	_ StmtNode = &AlterResourceGroupStmt{}
+	_ StmtNode = &DropResourceGroupStmt{}
+	_ StmtNode = &SetResourceGroupStmt{}
+	_ StmtNode = &LockInstanceStmt{}
+	_ StmtNode = &UnlockInstanceStmt{}
+	_ StmtNode = &CloneStmt{}
+	_ StmtNode = &CreateServerStmt{}
+	_ StmtNode = &AlterServerStmt{}
+	_ StmtNode = &DropServerStmt{}
 
 	_ Node = &PrivElem{}
 	_ Node = &VariableAssignment{}
@@ -1534,8 +1546,10 @@ func (n *AlterUserStmt) Accept(v Visitor) (Node, bool) {
 type AlterInstanceStmt struct {
 	stmtNode
 
-	ReloadTLS         bool
-	NoRollbackOnError bool
+	ReloadTLS             bool
+	NoRollbackOnError     bool
+	RotateInnoDBMasterKey bool
+	RotateBinlogMasterKey bool
 }
 
 // Restore implements Node interface.
@@ -1547,6 +1561,12 @@ func (n *AlterInstanceStmt) Restore(ctx *format.RestoreCtx) error {
 	if n.NoRollbackOnError {
 		ctx.WriteKeyWord(" NO ROLLBACK ON ERROR")
 	}
+	if n.RotateInnoDBMasterKey {
+		ctx.WriteKeyWord(" ROTATE INNODB MASTER KEY")
+	}
+	if n.RotateBinlogMasterKey {
+		ctx.WriteKeyWord(" ROTATE BINLOG MASTER KEY")
+	}
 	return nil
 }
 
@@ -1557,6 +1577,544 @@ func (n *AlterInstanceStmt) Accept(v Visitor) (Node, bool) {
 		return v.Leave(newNode)
 	}
 	n = newNode.(*AlterInstanceStmt)
+	return v.Leave(n)
+}
+
+// InstallStmtType is the type of INSTALL / UNINSTALL statement.
+type InstallStmtType int
+
+// INSTALL / UNINSTALL statement types.
+const (
+	InstallComponentType InstallStmtType = iota + 1
+	InstallPluginType
+	UninstallComponentType
+	UninstallPluginType
+)
+
+// InstallStmt is a statement to install a component or a plugin.
+// See https://dev.mysql.com/doc/refman/8.0/en/install-component.html
+type InstallStmt struct {
+	stmtNode
+
+	Tp         InstallStmtType
+	Components []string
+	Name       string // plugin name
+	SoName     string // plugin shared library name
+}
+
+// Restore implements Node interface.
+func (n *InstallStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("INSTALL ")
+	switch n.Tp {
+	case InstallComponentType:
+		ctx.WriteKeyWord("COMPONENT ")
+		for i, c := range n.Components {
+			if i != 0 {
+				ctx.WritePlain(", ")
+			}
+			ctx.WriteString(c)
+		}
+	case InstallPluginType:
+		ctx.WriteKeyWord("PLUGIN ")
+		ctx.WriteName(n.Name)
+		ctx.WriteKeyWord(" SONAME ")
+		ctx.WriteString(n.SoName)
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *InstallStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*InstallStmt)
+	return v.Leave(n)
+}
+
+// UninstallStmt is a statement to uninstall a component or a plugin.
+// See https://dev.mysql.com/doc/refman/8.0/en/uninstall-component.html
+type UninstallStmt struct {
+	stmtNode
+
+	Tp         InstallStmtType
+	Components []string
+	Name       string // plugin name
+}
+
+// Restore implements Node interface.
+func (n *UninstallStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("UNINSTALL ")
+	switch n.Tp {
+	case UninstallComponentType:
+		ctx.WriteKeyWord("COMPONENT ")
+		for i, c := range n.Components {
+			if i != 0 {
+				ctx.WritePlain(", ")
+			}
+			ctx.WriteString(c)
+		}
+	case UninstallPluginType:
+		ctx.WriteKeyWord("PLUGIN ")
+		ctx.WriteName(n.Name)
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *UninstallStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*UninstallStmt)
+	return v.Leave(n)
+}
+
+// ResourceGroupVcpu is a virtual CPU number or a virtual CPU range
+// used by resource group statements.
+type ResourceGroupVcpu struct {
+	node
+
+	Start int64
+	End   int64
+}
+
+// Restore implements Node interface.
+func (n *ResourceGroupVcpu) Restore(ctx *format.RestoreCtx) error {
+	ctx.WritePlain(strconv.FormatInt(n.Start, 10))
+	if n.End > n.Start {
+		ctx.WritePlain("-")
+		ctx.WritePlain(strconv.FormatInt(n.End, 10))
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *ResourceGroupVcpu) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*ResourceGroupVcpu)
+	return v.Leave(n)
+}
+
+// CreateResourceGroupStmt is a statement to create a resource group.
+// See https://dev.mysql.com/doc/refman/8.0/en/create-resource-group.html
+type CreateResourceGroupStmt struct {
+	stmtNode
+
+	Name           model.CIStr
+	Type           string // "SYSTEM" or "USER"
+	VcpuList       []*ResourceGroupVcpu
+	ThreadPriority int64 // -1 means not specified
+	Enable         *bool // nil means not specified
+}
+
+// Restore implements Node interface.
+func (n *CreateResourceGroupStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("CREATE RESOURCE GROUP ")
+	ctx.WriteName(n.Name.O)
+	ctx.WriteKeyWord(" TYPE = ")
+	ctx.WriteKeyWord(n.Type)
+	if len(n.VcpuList) > 0 {
+		ctx.WriteKeyWord(" VCPU = ")
+		for i, vcpu := range n.VcpuList {
+			if i != 0 {
+				ctx.WritePlain(", ")
+			}
+			if err := vcpu.Restore(ctx); err != nil {
+				return errors.Annotatef(err, "An error occurred while restore CreateResourceGroupStmt.VcpuList[%d]", i)
+			}
+		}
+	}
+	if n.ThreadPriority >= 0 {
+		ctx.WriteKeyWord(" THREAD_PRIORITY = ")
+		ctx.WritePlain(strconv.FormatInt(n.ThreadPriority, 10))
+	}
+	if n.Enable != nil {
+		if *n.Enable {
+			ctx.WriteKeyWord(" ENABLE")
+		} else {
+			ctx.WriteKeyWord(" DISABLE")
+		}
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *CreateResourceGroupStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*CreateResourceGroupStmt)
+	for i, vcpu := range n.VcpuList {
+		node, ok := vcpu.Accept(v)
+		if !ok {
+			return n, false
+		}
+		n.VcpuList[i] = node.(*ResourceGroupVcpu)
+	}
+	return v.Leave(n)
+}
+
+// AlterResourceGroupStmt is a statement to alter a resource group.
+// See https://dev.mysql.com/doc/refman/8.0/en/alter-resource-group.html
+type AlterResourceGroupStmt struct {
+	stmtNode
+
+	Name           model.CIStr
+	VcpuList       []*ResourceGroupVcpu
+	ThreadPriority int64 // -1 means not specified
+	Enable         *bool // nil means not specified
+	Force          bool
+}
+
+// Restore implements Node interface.
+func (n *AlterResourceGroupStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("ALTER RESOURCE GROUP ")
+	ctx.WriteName(n.Name.O)
+	if len(n.VcpuList) > 0 {
+		ctx.WriteKeyWord(" VCPU = ")
+		for i, vcpu := range n.VcpuList {
+			if i != 0 {
+				ctx.WritePlain(", ")
+			}
+			if err := vcpu.Restore(ctx); err != nil {
+				return errors.Annotatef(err, "An error occurred while restore AlterResourceGroupStmt.VcpuList[%d]", i)
+			}
+		}
+	}
+	if n.ThreadPriority >= 0 {
+		ctx.WriteKeyWord(" THREAD_PRIORITY = ")
+		ctx.WritePlain(strconv.FormatInt(n.ThreadPriority, 10))
+	}
+	if n.Enable != nil {
+		if *n.Enable {
+			ctx.WriteKeyWord(" ENABLE")
+		} else {
+			ctx.WriteKeyWord(" DISABLE")
+		}
+	}
+	if n.Force {
+		ctx.WriteKeyWord(" FORCE")
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *AlterResourceGroupStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*AlterResourceGroupStmt)
+	for i, vcpu := range n.VcpuList {
+		node, ok := vcpu.Accept(v)
+		if !ok {
+			return n, false
+		}
+		n.VcpuList[i] = node.(*ResourceGroupVcpu)
+	}
+	return v.Leave(n)
+}
+
+// DropResourceGroupStmt is a statement to drop a resource group.
+// See https://dev.mysql.com/doc/refman/8.0/en/drop-resource-group.html
+type DropResourceGroupStmt struct {
+	stmtNode
+
+	Name  model.CIStr
+	Force bool
+}
+
+// Restore implements Node interface.
+func (n *DropResourceGroupStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("DROP RESOURCE GROUP ")
+	ctx.WriteName(n.Name.O)
+	if n.Force {
+		ctx.WriteKeyWord(" FORCE")
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *DropResourceGroupStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*DropResourceGroupStmt)
+	return v.Leave(n)
+}
+
+// SetResourceGroupStmt is a statement to assign a resource group
+// to threads or users.
+// See https://dev.mysql.com/doc/refman/8.0/en/set-resource-group.html
+type SetResourceGroupStmt struct {
+	stmtNode
+
+	Name      model.CIStr
+	ThreadIDs []int64
+	UserList  []*auth.UserIdentity
+}
+
+// Restore implements Node interface.
+func (n *SetResourceGroupStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("SET RESOURCE GROUP ")
+	ctx.WriteName(n.Name.O)
+	if len(n.ThreadIDs) > 0 {
+		ctx.WriteKeyWord(" FOR ")
+		for i, id := range n.ThreadIDs {
+			if i != 0 {
+				ctx.WritePlain(", ")
+			}
+			ctx.WritePlain(strconv.FormatInt(id, 10))
+		}
+	} else if len(n.UserList) > 0 {
+		ctx.WriteKeyWord(" FOR ")
+		for i, user := range n.UserList {
+			if i != 0 {
+				ctx.WritePlain(", ")
+			}
+			if err := user.Restore(ctx); err != nil {
+				return errors.Annotatef(err, "An error occurred while restore SetResourceGroupStmt.UserList[%d]", i)
+			}
+		}
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *SetResourceGroupStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*SetResourceGroupStmt)
+	return v.Leave(n)
+}
+
+// LockInstanceStmt is a statement to lock the instance for backup.
+// See https://dev.mysql.com/doc/refman/8.0/en/lock-instance-for-backup.html
+type LockInstanceStmt struct {
+	stmtNode
+}
+
+// Restore implements Node interface.
+func (n *LockInstanceStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("LOCK INSTANCE FOR BACKUP")
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *LockInstanceStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*LockInstanceStmt)
+	return v.Leave(n)
+}
+
+// UnlockInstanceStmt is a statement to unlock the instance.
+// See https://dev.mysql.com/doc/refman/8.0/en/lock-instance-for-backup.html
+type UnlockInstanceStmt struct {
+	stmtNode
+}
+
+// Restore implements Node interface.
+func (n *UnlockInstanceStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("UNLOCK INSTANCE")
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *UnlockInstanceStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*UnlockInstanceStmt)
+	return v.Leave(n)
+}
+
+// CloneStmt is a statement to clone data locally.
+// See https://dev.mysql.com/doc/refman/8.0/en/clone.html
+type CloneStmt struct {
+	stmtNode
+
+	DataDirectory string
+}
+
+// Restore implements Node interface.
+func (n *CloneStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("CLONE LOCAL DATA DIRECTORY = ")
+	ctx.WriteString(n.DataDirectory)
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *CloneStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*CloneStmt)
+	return v.Leave(n)
+}
+
+// ServerOption represents an option in the OPTIONS clause of
+// CREATE SERVER / ALTER SERVER statement.
+type ServerOption struct {
+	node
+
+	Name    string
+	Value   string
+	Numeric bool
+}
+
+// Restore implements Node interface.
+func (n *ServerOption) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord(strings.ToUpper(n.Name))
+	ctx.WritePlain(" ")
+	if n.Numeric {
+		ctx.WritePlain(n.Value)
+	} else {
+		ctx.WriteString(n.Value)
+	}
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *ServerOption) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*ServerOption)
+	return v.Leave(n)
+}
+
+// CreateServerStmt is a statement to create a server definition
+// for the FEDERATED storage engine.
+// See https://dev.mysql.com/doc/refman/8.0/en/create-server.html
+type CreateServerStmt struct {
+	stmtNode
+
+	Name    model.CIStr
+	Wrapper model.CIStr
+	Options []*ServerOption
+}
+
+// Restore implements Node interface.
+func (n *CreateServerStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("CREATE SERVER ")
+	ctx.WriteName(n.Name.O)
+	ctx.WriteKeyWord(" FOREIGN DATA WRAPPER ")
+	ctx.WriteName(n.Wrapper.O)
+	ctx.WriteKeyWord(" OPTIONS (")
+	for i, option := range n.Options {
+		if i != 0 {
+			ctx.WritePlain(", ")
+		}
+		if err := option.Restore(ctx); err != nil {
+			return errors.Annotatef(err, "An error occurred while restore CreateServerStmt.Options[%d]", i)
+		}
+	}
+	ctx.WritePlain(")")
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *CreateServerStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*CreateServerStmt)
+	for i, option := range n.Options {
+		node, ok := option.Accept(v)
+		if !ok {
+			return n, false
+		}
+		n.Options[i] = node.(*ServerOption)
+	}
+	return v.Leave(n)
+}
+
+// AlterServerStmt is a statement to alter a server definition.
+// See https://dev.mysql.com/doc/refman/8.0/en/alter-server.html
+type AlterServerStmt struct {
+	stmtNode
+
+	Name    model.CIStr
+	Options []*ServerOption
+}
+
+// Restore implements Node interface.
+func (n *AlterServerStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("ALTER SERVER ")
+	ctx.WriteName(n.Name.O)
+	ctx.WriteKeyWord(" OPTIONS (")
+	for i, option := range n.Options {
+		if i != 0 {
+			ctx.WritePlain(", ")
+		}
+		if err := option.Restore(ctx); err != nil {
+			return errors.Annotatef(err, "An error occurred while restore AlterServerStmt.Options[%d]", i)
+		}
+	}
+	ctx.WritePlain(")")
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *AlterServerStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*AlterServerStmt)
+	for i, option := range n.Options {
+		node, ok := option.Accept(v)
+		if !ok {
+			return n, false
+		}
+		n.Options[i] = node.(*ServerOption)
+	}
+	return v.Leave(n)
+}
+
+// DropServerStmt is a statement to drop a server definition.
+// See https://dev.mysql.com/doc/refman/8.0/en/drop-server.html
+type DropServerStmt struct {
+	stmtNode
+
+	IfExists bool
+	Name     model.CIStr
+}
+
+// Restore implements Node interface.
+func (n *DropServerStmt) Restore(ctx *format.RestoreCtx) error {
+	ctx.WriteKeyWord("DROP SERVER ")
+	if n.IfExists {
+		ctx.WriteKeyWord("IF EXISTS ")
+	}
+	ctx.WriteName(n.Name.O)
+	return nil
+}
+
+// Accept implements Node Accept interface.
+func (n *DropServerStmt) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*DropServerStmt)
 	return v.Leave(n)
 }
 

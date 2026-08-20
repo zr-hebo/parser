@@ -296,6 +296,7 @@ import (
 	/* The following tokens belong to UnReservedKeyword. Notice: make sure these tokens are contained in UnReservedKeyword. */
 	account               "ACCOUNT"
 	action                "ACTION"
+	active                "ACTIVE"
 	advise                "ADVISE"
 	after                 "AFTER"
 	against               "AGAINST"
@@ -331,6 +332,7 @@ import (
 	cascaded              "CASCADED"
 	causal                "CAUSAL"
 	chain                 "CHAIN"
+	changed               "CHANGED"
 	charsetKwd            "CHARSET"
 	checkpoint            "CHECKPOINT"
 	checksum              "CHECKSUM"
@@ -339,6 +341,7 @@ import (
 	client                "CLIENT"
 	clientErrorsSummary   "CLIENT_ERRORS_SUMMARY"
 	clientStatistics      "CLIENT_STATISTICS"
+	cloneKwd              "CLONE"
 	coalesce              "COALESCE"
 	collation             "COLLATION"
 	columnFormat          "COLUMN_FORMAT"
@@ -348,6 +351,7 @@ import (
 	commit                "COMMIT"
 	committed             "COMMITTED"
 	compact               "COMPACT"
+	component             "COMPONENT"
 	compressed            "COMPRESSED"
 	compressionDictionary "COMPRESSION_DICTIONARY"
 	compression           "COMPRESSION"
@@ -368,6 +372,7 @@ import (
 	clustered             "CLUSTERED"
 	cycle                 "CYCLE"
 	data                  "DATA"
+	datafile              "DATAFILE"
 	datetimeType          "DATETIME"
 	dateType              "DATE"
 	day                   "DAY"
@@ -401,9 +406,11 @@ import (
 	expansion             "EXPANSION"
 	expire                "EXPIRE"
 	extended              "EXTENDED"
+	fast                  "FAST"
 	faultsSym             "FAULTS"
 	fields                "FIELDS"
 	file                  "FILE"
+	fileBlockSize         "FILE_BLOCK_SIZE"
 	first                 "FIRST"
 	fixed                 "FIXED"
 	flush                 "FLUSH"
@@ -426,10 +433,13 @@ import (
 	identSQLErrors        "ERRORS"
 	importKwd             "IMPORT"
 	imports               "IMPORTS"
+	inactive              "INACTIVE"
 	increment             "INCREMENT"
 	incremental           "INCREMENTAL"
+	innodb                "INNODB"
 	indexes               "INDEXES"
 	insertMethod          "INSERT_METHOD"
+	install               "INSTALL"
 	instance              "INSTANCE"
 	invisible             "INVISIBLE"
 	invoker               "INVOKER"
@@ -460,6 +470,7 @@ import (
 	maxUpdatesPerHour     "MAX_UPDATES_PER_HOUR"
 	maxUserConnections    "MAX_USER_CONNECTIONS"
 	mb                    "MB"
+	medium                "MEDIUM"
 	memory                "MEMORY"
 	merge                 "MERGE"
 	microsecond           "MICROSECOND"
@@ -493,6 +504,7 @@ import (
 	only                  "ONLY"
 	open                  "OPEN"
 	optional              "OPTIONAL"
+	options               "OPTIONS"
 	packKeys              "PACK_KEYS"
 	pageSym               "PAGE"
 	parser                "PARSER"
@@ -504,6 +516,7 @@ import (
 	per_db                "PER_DB"
 	per_table             "PER_TABLE"
 	pipesAsOr
+	plugin                "PLUGIN"
 	plugins               "PLUGINS"
 	policy                "POLICY"
 	preSplitRegions       "PRE_SPLIT_REGIONS"
@@ -536,6 +549,7 @@ import (
 	replication           "REPLICATION"
 	required              "REQUIRED"
 	respect               "RESPECT"
+	resource              "RESOURCE"
 	restart               "RESTART"
 	restore               "RESTORE"
 	restores              "RESTORES"
@@ -544,6 +558,7 @@ import (
 	reverse               "REVERSE"
 	role                  "ROLE"
 	rollback              "ROLLBACK"
+	rotate                "ROTATE"
 	routine               "ROUTINE"
 	rowCount              "ROW_COUNT"
 	rowFormat             "ROW_FORMAT"
@@ -561,6 +576,7 @@ import (
 	sequence              "SEQUENCE"
 	serial                "SERIAL"
 	serializable          "SERIALIZABLE"
+	server                "SERVER"
 	session               "SESSION"
 	setval                "SETVAL"
 	shardRowIDBits        "SHARD_ROW_ID_BITS"
@@ -575,6 +591,7 @@ import (
 	slow                  "SLOW"
 	snapshot              "SNAPSHOT"
 	some                  "SOME"
+	soname                "SONAME"
 	source                "SOURCE"
 	sqlBufferResult       "SQL_BUFFER_RESULT"
 	sqlCache              "SQL_CACHE"
@@ -611,6 +628,7 @@ import (
 	temptable             "TEMPTABLE"
 	textType              "TEXT"
 	than                  "THAN"
+	threadPriority        "THREAD_PRIORITY"
 	tikvImporter          "TIKV_IMPORTER"
 	timestampType         "TIMESTAMP"
 	timeType              "TIME"
@@ -623,11 +641,16 @@ import (
 	unbounded             "UNBOUNDED"
 	uncommitted           "UNCOMMITTED"
 	undefined             "UNDEFINED"
+	undo                  "UNDO"
 	unicodeSym            "UNICODE"
+	uninstall             "UNINSTALL"
 	unknown               "UNKNOWN"
+	upgrade               "UPGRADE"
 	user                  "USER"
+	useFrm                "USE_FRM"
 	validation            "VALIDATION"
 	value                 "VALUE"
+	vcpu                  "VCPU"
 	variables             "VARIABLES"
 	view                  "VIEW"
 	visible               "VISIBLE"
@@ -635,6 +658,7 @@ import (
 	week                  "WEEK"
 	weightString          "WEIGHT_STRING"
 	without               "WITHOUT"
+	wrapper               "WRAPPER"
 	x509                  "X509"
 	yearType              "YEAR"
 	wait                  "WAIT"
@@ -863,7 +887,11 @@ import (
 	AlterImportStmt            "ALTER IMPORT statement"
 	AlterInstanceStmt          "Alter instance statement"
 	AlterPolicyStmt            "Alter Placement Policy statement"
+	AlterResourceGroupStmt     "Alter resource group statement"
 	AlterSequenceStmt          "Alter sequence statement"
+	AlterServerStmt            "Alter server statement"
+	AlterTablespaceStmt        "Alter tablespace statement"
+	AlterViewStmt              "Alter view statement"
 	AnalyzeTableStmt           "Analyze table statement"
 	BeginTransactionStmt       "BEGIN TRANSACTION statement"
 	BinlogStmt                 "Binlog base64 statement"
@@ -878,8 +906,11 @@ import (
 	CreateImportStmt           "CREATE IMPORT statement"
 	CreateBindingStmt          "CREATE BINDING  statement"
 	CreatePolicyStmt           "CREATE PLACEMENT POLICY statement"
+	CreateResourceGroupStmt    "CREATE RESOURCE GROUP statement"
 	CreateSequenceStmt         "CREATE SEQUENCE statement"
+	CreateServerStmt           "CREATE SERVER statement"
 	CreateStatisticsStmt       "CREATE STATISTICS statement"
+	CreateTablespaceStmt       "CREATE TABLESPACE statement"
 	DoStmt                     "Do statement"
 	DropDatabaseStmt           "DROP DATABASE statement"
 	DropImportStmt             "DROP IMPORT statement"
@@ -887,12 +918,15 @@ import (
 	DropStatisticsStmt         "DROP STATISTICS statement"
 	DropStatsStmt              "DROP STATS statement"
 	DropTableStmt              "DROP TABLE statement"
+	DropTablespaceStmt         "DROP TABLESPACE statement"
 	DropSequenceStmt           "DROP SEQUENCE statement"
 	DropUserStmt               "DROP USER"
 	DropRoleStmt               "DROP ROLE"
+	DropServerStmt             "DROP SERVER"
 	DropViewStmt               "DROP VIEW statement"
 	DropBindingStmt            "DROP BINDING  statement"
 	DropPolicyStmt             "DROP PLACEMENT POLICY statement"
+	DropResourceGroupStmt      "DROP RESOURCE GROUP statement"
 	DeallocateStmt             "Deallocate prepared statement"
 	DeleteFromStmt             "DELETE FROM statement"
 	DeleteWithoutUsingStmt     "Normal DELETE statement"
@@ -912,11 +946,16 @@ import (
 	GrantRoleStmt              "Grant role statement"
 	InsertIntoStmt             "INSERT INTO statement"
 	CallStmt                   "CALL statement"
+	CheckTableStmt             "CHECK TABLE statement"
+	ChecksumTableStmt          "CHECKSUM TABLE statement"
+	CloneStmt                  "CLONE statement"
 	IndexAdviseStmt            "INDEX ADVISE statement"
+	InstallStmt                "INSTALL COMPONENT or INSTALL PLUGIN statement"
 	KillStmt                   "Kill statement"
 	LoadDataStmt               "Load data statement"
 	LoadStatsStmt              "Load statistic statement"
 	LockTablesStmt             "Lock tables statement"
+	LockInstanceStmt           "Lock instance statement"
 	PlanRecreatorStmt          "Plan recreator statement"
 	PreparedStmt               "PreparedStmt"
 	PurgeImportStmt            "PURGE IMPORT statement that removes a IMPORT task record"
@@ -924,6 +963,7 @@ import (
 	SelectStmtWithClause       "common table expression SELECT statement"
 	RenameTableStmt            "rename table statement"
 	RenameUserStmt             "rename user statement"
+	RepairTableStmt            "MySQL repair table statement"
 	ReplaceIntoStmt            "REPLACE INTO statement"
 	RecoverTableStmt           "recover table statement"
 	ResumeImportStmt           "RESUME IMPORT statement"
@@ -935,6 +975,7 @@ import (
 	ChangeStmt                 "Change statement"
 	SetRoleStmt                "Set active role statement"
 	SetDefaultRoleStmt         "Set default statement for some user"
+	SetResourceGroupStmt       "Set resource group statement"
 	ShowImportStmt             "SHOW IMPORT statement"
 	ShowStmt                   "Show engines/databases/tables/user/columns/warnings/status statement"
 	Statement                  "statement"
@@ -943,6 +984,8 @@ import (
 	TraceableStmt              "traceable statement"
 	TruncateTableStmt          "TRUNCATE TABLE statement"
 	UnlockTablesStmt           "Unlock tables statement"
+	UnlockInstanceStmt         "Unlock instance statement"
+	UninstallStmt              "Uninstall component or plugin statement"
 	UpdateStmt                 "UPDATE statement"
 	SetOprStmt                 "Union/Except/Intersect select statement"
 	SetOprStmtWithLimitOrderBy "Union/Except/Intersect select statement with limit and order by"
@@ -979,6 +1022,26 @@ import (
 	TriggerTiming                          "Trigger timing, BEFORE or AFTER"
 	TriggerEvent                           "Trigger event, INSERT, UPDATE or DELETE"
 	TriggerOrderOpt                        "Trigger order, FOLLOWS or PRECEDES other trigger"
+	CheckTableOptionList                   "CHECK TABLE option list"
+	CheckTableOption                       "CHECK TABLE option"
+	ChecksumTableOptionOpt                 "CHECKSUM TABLE option opt"
+	RepairTableOptionList                  "REPAIR TABLE option list"
+	RepairTableOption                      "REPAIR TABLE option"
+	ComponentStringList                    "COMPONENT string literal list"
+	ResourceGroupType                      "Resource group type"
+	ResourceGroupVcpuOpt                   "Optional resource group vcpu"
+	ResourceGroupVcpuList                  "Resource group vcpu list"
+	ResourceGroupVcpuRange                 "Resource group vcpu range"
+	ResourceGroupPriorityOpt               "Optional resource group thread priority"
+	ResourceGroupEnableOpt                 "Optional resource group enable or disable"
+	ResourceGroupForceOpt                  "Optional resource group force"
+	ResourceGroupSetForOpt                 "Optional resource group set for"
+	ThreadIDList                           "Thread id list"
+	CreateTablespaceOptionList             "CREATE TABLESPACE option list"
+	CreateTablespaceOption                 "CREATE TABLESPACE option"
+	DropTablespaceEngineOpt                "DROP TABLESPACE engine opt"
+	ServerOptionList                       "SERVER OPTIONS list"
+	ServerOption                           "SERVER OPTIONS item"
 	ClearPasswordExpireOptions             "Clear password expire options"
 	ColumnDef                              "table column definition"
 	ColumnDefList                          "table column definition list"
@@ -4538,6 +4601,45 @@ ViewCheckOption:
 		$$ = model.CheckOptionLocal
 	}
 
+/*******************************************************************
+ *
+ *  Alter View Statement
+ *  See https://dev.mysql.com/doc/refman/8.0/en/alter-view.html
+ *
+ *  ALTER [ALGORITHM = {UNDEFINED | MERGE | TEMPTABLE}]
+ *      [DEFINER = user]
+ *      [SQL SECURITY { DEFINER | INVOKER }]
+ *      VIEW view_name [(column_list)]
+ *      AS select_statement
+ *      [WITH [CASCADED | LOCAL] CHECK OPTION]
+ *
+ *******************************************************************/
+AlterViewStmt:
+	"ALTER" ViewAlgorithm ViewDefiner ViewSQLSecurity "VIEW" ViewName ViewFieldList "AS" CreateViewSelectOpt ViewCheckOption
+	{
+		startOffset := parser.startOffset(&yyS[yypt-1])
+		selStmt := $9.(ast.StmtNode)
+		selStmt.SetText(strings.TrimSpace(parser.src[startOffset:]))
+		x := &ast.AlterViewStmt{
+			ViewName:  $6.(*ast.TableName),
+			Select:    selStmt,
+			Algorithm: $2.(model.ViewAlgorithm),
+			Definer:   $3.(*auth.UserIdentity),
+			Security:  $4.(model.ViewSecurity),
+		}
+		if $7 != nil {
+			x.Cols = $7.([]model.CIStr)
+		}
+		if $10 != nil {
+			x.CheckOption = $10.(model.ViewCheckOption)
+			endOffset := parser.startOffset(&yyS[yypt])
+			selStmt.SetText(strings.TrimSpace(parser.src[startOffset:endOffset]))
+		} else {
+			x.CheckOption = model.CheckOptionCascaded
+		}
+		$$ = x
+	}
+
 /******************************************************************
  * Do statement
  * See https://dev.mysql.com/doc/refman/5.7/en/do.html
@@ -6393,6 +6495,30 @@ UnReservedKeyword:
 |	"CLUSTERED"
 |	"NONCLUSTERED"
 |	"PRESERVE"
+|	"ACTIVE"
+|	"CLONE"
+|	"COMPONENT"
+|	"DATAFILE"
+|	"INACTIVE"
+|	"INNODB"
+|	"INSTALL"
+|	"OPTIONS"
+|	"PLUGIN"
+|	"RESOURCE"
+|	"ROTATE"
+|	"SERVER"
+|	"SONAME"
+|	"THREAD_PRIORITY"
+|	"UNDO"
+|	"UNINSTALL"
+|	"VCPU"
+|	"WRAPPER"
+|	"CHANGED"
+|	"FAST"
+|	"MEDIUM"
+|	"UPGRADE"
+|	"USE_FRM"
+|	"FILE_BLOCK_SIZE"
 
 TiDBKeyword:
 	"ADMIN"
@@ -11070,6 +11196,117 @@ OptimizeTableStmt:
 		}
 	}
 
+/*******************************************************************
+ *
+ *  Table maintenance statements
+ *  See https://dev.mysql.com/doc/refman/8.0/en/check-table.html
+ *
+ *  CHECK TABLE tbl_name [, tbl_name] ... [option] ...
+ *  REPAIR TABLE tbl_name [, tbl_name] ... [QUICK] [EXTENDED] [USE_FRM]
+ *  CHECKSUM TABLE tbl_name [, tbl_name] ... [QUICK | EXTENDED]
+ *
+ *******************************************************************/
+CheckTableStmt:
+	"CHECK" "TABLE" TableNameList CheckTableOptionList
+	{
+		$$ = &ast.CheckTableStmt{
+			Tables:  $3.([]*ast.TableName),
+			Options: $4.([]ast.CheckTableOptionType),
+		}
+	}
+
+CheckTableOptionList:
+	%prec empty
+	{
+		$$ = []ast.CheckTableOptionType{}
+	}
+|	CheckTableOptionList CheckTableOption
+	{
+		$$ = append($1.([]ast.CheckTableOptionType), $2.(ast.CheckTableOptionType))
+	}
+
+CheckTableOption:
+	"FOR" "UPGRADE"
+	{
+		$$ = ast.CheckTableForUpgrade
+	}
+|	"QUICK"
+	{
+		$$ = ast.CheckTableQuick
+	}
+|	"FAST"
+	{
+		$$ = ast.CheckTableFast
+	}
+|	"MEDIUM"
+	{
+		$$ = ast.CheckTableMedium
+	}
+|	"EXTENDED"
+	{
+		$$ = ast.CheckTableExtended
+	}
+|	"CHANGED"
+	{
+		$$ = ast.CheckTableChanged
+	}
+
+RepairTableStmt:
+	"REPAIR" "TABLE" TableNameList RepairTableOptionList
+	{
+		$$ = &ast.RepairTableStmt{
+			Tables:  $3.([]*ast.TableName),
+			Options: $4.([]ast.RepairTableOptionType),
+		}
+	}
+
+RepairTableOptionList:
+	%prec empty
+	{
+		$$ = []ast.RepairTableOptionType{}
+	}
+|	RepairTableOptionList RepairTableOption
+	{
+		$$ = append($1.([]ast.RepairTableOptionType), $2.(ast.RepairTableOptionType))
+	}
+
+RepairTableOption:
+	"QUICK"
+	{
+		$$ = ast.RepairTableQuick
+	}
+|	"EXTENDED"
+	{
+		$$ = ast.RepairTableExtended
+	}
+|	"USE_FRM"
+	{
+		$$ = ast.RepairTableUseFrm
+	}
+
+ChecksumTableStmt:
+	"CHECKSUM" "TABLE" TableNameList ChecksumTableOptionOpt
+	{
+		$$ = &ast.ChecksumTableStmt{
+			Tables: $3.([]*ast.TableName),
+			Option: $4.(ast.ChecksumTableOptionType),
+		}
+	}
+
+ChecksumTableOptionOpt:
+	%prec empty
+	{
+		$$ = ast.ChecksumTableOptionNone
+	}
+|	"QUICK"
+	{
+		$$ = ast.ChecksumTableQuick
+	}
+|	"EXTENDED"
+	{
+		$$ = ast.ChecksumTableExtended
+	}
+
 FlushStmt:
 	"FLUSH" NoWriteToBinLogAliasOpt FlushOption
 	{
@@ -11148,6 +11385,60 @@ FlushOption:
 		}
 	}
 
+/*******************************************************************
+ *
+ *  Component and plugin statements
+ *  See https://dev.mysql.com/doc/refman/8.0/en/install-component.html
+ *
+ *  INSTALL COMPONENT 'file://component1' [, 'file://component2'] ...
+ *  UNINSTALL COMPONENT 'file://component1' [, 'file://component2'] ...
+ *  INSTALL PLUGIN plugin_name SONAME 'plugin_library'
+ *  UNINSTALL PLUGIN plugin_name
+ *
+ *******************************************************************/
+InstallStmt:
+	"INSTALL" "COMPONENT" stringLit ComponentStringList
+	{
+		$$ = &ast.InstallStmt{
+			Tp:         ast.InstallComponentType,
+			Components: append([]string{$3}, $4.([]string)...),
+		}
+	}
+|	"INSTALL" "PLUGIN" Identifier "SONAME" stringLit
+	{
+		$$ = &ast.InstallStmt{
+			Tp:     ast.InstallPluginType,
+			Name:   $3,
+			SoName: $5,
+		}
+	}
+
+UninstallStmt:
+	"UNINSTALL" "COMPONENT" stringLit ComponentStringList
+	{
+		$$ = &ast.UninstallStmt{
+			Tp:         ast.UninstallComponentType,
+			Components: append([]string{$3}, $4.([]string)...),
+		}
+	}
+|	"UNINSTALL" "PLUGIN" Identifier
+	{
+		$$ = &ast.UninstallStmt{
+			Tp:   ast.UninstallPluginType,
+			Name: $3,
+		}
+	}
+
+ComponentStringList:
+	%prec empty
+	{
+		$$ = []string{}
+	}
+|	ComponentStringList ',' stringLit
+	{
+		$$ = append($1.([]string), $3)
+	}
+
 LogTypeOpt:
 	/* empty */
 	{
@@ -11224,6 +11515,10 @@ Statement:
 |	AlterInstanceStmt
 |	AlterSequenceStmt
 |	AlterPolicyStmt
+|	AlterResourceGroupStmt
+|	AlterServerStmt
+|	AlterTablespaceStmt
+|	AlterViewStmt
 |	AnalyzeTableStmt
 |	BeginTransactionStmt
 |	BinlogStmt
@@ -11234,9 +11529,15 @@ Statement:
 |	ExecuteStmt
 |	ExplainStmt
 |	ChangeStmt
+|	CheckTableStmt
+|	ChecksumTableStmt
+|	CloneStmt
 |	CreateDatabaseStmt
 |	CreateImportStmt
 |	CreateIndexStmt
+|	CreateResourceGroupStmt
+|	CreateServerStmt
+|	CreateTablespaceStmt
 |	CreateTableStmt
 |	CreateViewStmt
 |	CreateUserStmt
@@ -11250,11 +11551,14 @@ Statement:
 |	DropImportStmt
 |	DropIndexStmt
 |	DropTableStmt
+|	DropTablespaceStmt
 |	DropPolicyStmt
+|	DropResourceGroupStmt
 |	DropSequenceStmt
 |	DropViewStmt
 |	DropUserStmt
 |	DropRoleStmt
+|	DropServerStmt
 |	DropStatisticsStmt
 |	DropStatsStmt
 |	DropBindingStmt
@@ -11269,6 +11573,7 @@ Statement:
 |	CallStmt
 |	InsertIntoStmt
 |	IndexAdviseStmt
+|	InstallStmt
 |	KillStmt
 |	LoadDataStmt
 |	LoadStatsStmt
@@ -11280,6 +11585,7 @@ Statement:
 |	RenameUserStmt
 |	ReplaceIntoStmt
 |	RecoverTableStmt
+|	RepairTableStmt
 |	ResumeImportStmt
 |	RevokeStmt
 |	RevokeRoleStmt
@@ -11300,6 +11606,7 @@ Statement:
 		$$ = sel
 	}
 |	SetStmt
+|	SetResourceGroupStmt
 |	SetRoleStmt
 |	SetDefaultRoleStmt
 |	SplitRegionStmt
@@ -11311,7 +11618,10 @@ Statement:
 |	UpdateStmt
 |	UseStmt
 |	UnlockTablesStmt
+|	UnlockInstanceStmt
+|	UninstallStmt
 |	LockTablesStmt
+|	LockInstanceStmt
 |	ShutdownStmt
 |	RestartStmt
 |	HelpStmt
@@ -12536,6 +12846,18 @@ InstanceOption:
 			NoRollbackOnError: true,
 		}
 	}
+|	"ROTATE" "INNODB" "MASTER" "KEY"
+	{
+		$$ = &ast.AlterInstanceStmt{
+			RotateInnoDBMasterKey: true,
+		}
+	}
+|	"ROTATE" "BINLOG" "MASTER" "KEY"
+	{
+		$$ = &ast.AlterInstanceStmt{
+			RotateBinlogMasterKey: true,
+		}
+	}
 
 UserSpec:
 	Username AuthOption
@@ -13643,6 +13965,367 @@ TableLockList:
 |	TableLockList ',' TableLock
 	{
 		$$ = append($1.([]ast.TableLock), $3.(ast.TableLock))
+	}
+
+/********************************************************************
+ * Lock/Unlock Instance
+ * See https://dev.mysql.com/doc/refman/8.0/en/lock-instance-for-backup.html
+ *******************************************************************/
+LockInstanceStmt:
+	"LOCK" "INSTANCE" "FOR" "BACKUP"
+	{
+		$$ = &ast.LockInstanceStmt{}
+	}
+
+UnlockInstanceStmt:
+	"UNLOCK" "INSTANCE"
+	{
+		$$ = &ast.UnlockInstanceStmt{}
+	}
+
+/********************************************************************
+ * Clone Statement
+ * See https://dev.mysql.com/doc/refman/8.0/en/clone.html
+ *******************************************************************/
+CloneStmt:
+	"CLONE" "LOCAL" "DATA" "DIRECTORY" EqOpt stringLit
+	{
+		$$ = &ast.CloneStmt{
+			DataDirectory: $6,
+		}
+	}
+
+/********************************************************************
+ * Resource Group Statements
+ * See https://dev.mysql.com/doc/refman/8.0/en/create-resource-group.html
+ *******************************************************************/
+CreateResourceGroupStmt:
+	"CREATE" "RESOURCE" "GROUP" Identifier ResourceGroupType ResourceGroupVcpuOpt ResourceGroupPriorityOpt ResourceGroupEnableOpt
+	{
+		$$ = &ast.CreateResourceGroupStmt{
+			Name:           model.NewCIStr($4),
+			Type:           $5.(string),
+			VcpuList:       $6.([]*ast.ResourceGroupVcpu),
+			ThreadPriority: $7.(int64),
+			Enable:         $8.(*bool),
+		}
+	}
+
+ResourceGroupType:
+	"TYPE" EqOpt "SYSTEM"
+	{
+		$$ = "SYSTEM"
+	}
+|	"TYPE" EqOpt "USER"
+	{
+		$$ = "USER"
+	}
+
+AlterResourceGroupStmt:
+	"ALTER" "RESOURCE" "GROUP" Identifier ResourceGroupVcpuOpt ResourceGroupPriorityOpt ResourceGroupEnableOpt ResourceGroupForceOpt
+	{
+		$$ = &ast.AlterResourceGroupStmt{
+			Name:           model.NewCIStr($4),
+			VcpuList:       $5.([]*ast.ResourceGroupVcpu),
+			ThreadPriority: $6.(int64),
+			Enable:         $7.(*bool),
+			Force:          $8.(bool),
+		}
+	}
+
+DropResourceGroupStmt:
+	"DROP" "RESOURCE" "GROUP" Identifier ResourceGroupForceOpt
+	{
+		$$ = &ast.DropResourceGroupStmt{
+			Name:  model.NewCIStr($4),
+			Force: $5.(bool),
+		}
+	}
+
+SetResourceGroupStmt:
+	"SET" "RESOURCE" "GROUP" Identifier ResourceGroupSetForOpt
+	{
+		stmt := &ast.SetResourceGroupStmt{
+			Name: model.NewCIStr($4),
+		}
+		switch v := $5.(type) {
+		case []int64:
+			stmt.ThreadIDs = v
+		case []*auth.UserIdentity:
+			stmt.UserList = v
+		}
+		$$ = stmt
+	}
+
+ResourceGroupVcpuOpt:
+	%prec empty
+	{
+		$$ = []*ast.ResourceGroupVcpu{}
+	}
+|	"VCPU" EqOpt ResourceGroupVcpuList
+	{
+		$$ = $3
+	}
+
+ResourceGroupVcpuList:
+	ResourceGroupVcpuRange
+	{
+		$$ = []*ast.ResourceGroupVcpu{$1.(*ast.ResourceGroupVcpu)}
+	}
+|	ResourceGroupVcpuList ',' ResourceGroupVcpuRange
+	{
+		$$ = append($1.([]*ast.ResourceGroupVcpu), $3.(*ast.ResourceGroupVcpu))
+	}
+
+ResourceGroupVcpuRange:
+	Int64Num
+	{
+		$$ = &ast.ResourceGroupVcpu{Start: $1.(int64), End: $1.(int64)}
+	}
+|	Int64Num '-' Int64Num
+	{
+		$$ = &ast.ResourceGroupVcpu{Start: $1.(int64), End: $3.(int64)}
+	}
+
+ResourceGroupPriorityOpt:
+	%prec empty
+	{
+		$$ = int64(-1)
+	}
+|	"THREAD_PRIORITY" EqOpt Int64Num
+	{
+		$$ = $3
+	}
+
+ResourceGroupEnableOpt:
+	%prec empty
+	{
+		$$ = (*bool)(nil)
+	}
+|	"ENABLE"
+	{
+		t := true
+		$$ = &t
+	}
+|	"DISABLE"
+	{
+		t := false
+		$$ = &t
+	}
+
+ResourceGroupForceOpt:
+	%prec empty
+	{
+		$$ = false
+	}
+|	"FORCE"
+	{
+		$$ = true
+	}
+
+ResourceGroupSetForOpt:
+	%prec empty
+	{
+		$$ = nil
+	}
+|	"FOR" ThreadIDList
+	{
+		$$ = $2.([]int64)
+	}
+|	"FOR" UsernameList
+	{
+		$$ = $2.([]*auth.UserIdentity)
+	}
+
+ThreadIDList:
+	Int64Num
+	{
+		$$ = []int64{$1.(int64)}
+	}
+|	ThreadIDList ',' Int64Num
+	{
+		$$ = append($1.([]int64), $3.(int64))
+	}
+
+/********************************************************************
+ * Tablespace Statements
+ * See https://dev.mysql.com/doc/refman/8.0/en/create-tablespace.html
+ *******************************************************************/
+CreateTablespaceStmt:
+	"CREATE" "TABLESPACE" Identifier CreateTablespaceOptionList
+	{
+		$$ = &ast.CreateTablespaceStmt{
+			Name:    model.NewCIStr($3),
+			Options: $4.([]*ast.TablespaceOption),
+		}
+	}
+|	"CREATE" "UNDO" "TABLESPACE" Identifier CreateTablespaceOptionList
+	{
+		$$ = &ast.CreateTablespaceStmt{
+			Name:    model.NewCIStr($4),
+			Undo:    true,
+			Options: $5.([]*ast.TablespaceOption),
+		}
+	}
+
+CreateTablespaceOptionList:
+	%prec empty
+	{
+		$$ = []*ast.TablespaceOption{}
+	}
+|	CreateTablespaceOptionList CreateTablespaceOption
+	{
+		$$ = append($1.([]*ast.TablespaceOption), $2.(*ast.TablespaceOption))
+	}
+
+CreateTablespaceOption:
+	"ADD" "DATAFILE" stringLit
+	{
+		$$ = &ast.TablespaceOption{
+			Tp:       ast.TablespaceOptionDataFile,
+			StrValue: $3,
+		}
+	}
+|	"FILE_BLOCK_SIZE" EqOpt Int64Num
+	{
+		$$ = &ast.TablespaceOption{
+			Tp:        ast.TablespaceOptionFileBlockSize,
+			UintValue: uint64($3.(int64)),
+		}
+	}
+|	"ENCRYPTION" EqOpt stringLit
+	{
+		$$ = &ast.TablespaceOption{
+			Tp:       ast.TablespaceOptionEncryption,
+			StrValue: $3,
+		}
+	}
+|	"ENGINE" EqOpt Identifier
+	{
+		$$ = &ast.TablespaceOption{
+			Tp:       ast.TablespaceOptionEngine,
+			StrValue: $3,
+		}
+	}
+
+AlterTablespaceStmt:
+	"ALTER" "UNDO" "TABLESPACE" Identifier "SET" "ACTIVE"
+	{
+		t := true
+		$$ = &ast.AlterTablespaceStmt{
+			Name:      model.NewCIStr($4),
+			Undo:      true,
+			SetActive: &t,
+		}
+	}
+|	"ALTER" "UNDO" "TABLESPACE" Identifier "SET" "INACTIVE"
+	{
+		t := false
+		$$ = &ast.AlterTablespaceStmt{
+			Name:      model.NewCIStr($4),
+			Undo:      true,
+			SetActive: &t,
+		}
+	}
+|	"ALTER" "TABLESPACE" Identifier "RENAME" "TO" Identifier
+	{
+		$$ = &ast.AlterTablespaceStmt{
+			Name:     model.NewCIStr($3),
+			RenameTo: model.NewCIStr($6),
+		}
+	}
+
+DropTablespaceStmt:
+	"DROP" "TABLESPACE" Identifier DropTablespaceEngineOpt
+	{
+		$$ = &ast.DropTablespaceStmt{
+			Name:   model.NewCIStr($3),
+			Engine: $4.(string),
+		}
+	}
+|	"DROP" "UNDO" "TABLESPACE" Identifier DropTablespaceEngineOpt
+	{
+		$$ = &ast.DropTablespaceStmt{
+			Name:   model.NewCIStr($4),
+			Undo:   true,
+			Engine: $5.(string),
+		}
+	}
+
+DropTablespaceEngineOpt:
+	%prec empty
+	{
+		$$ = ""
+	}
+|	"ENGINE" EqOpt Identifier
+	{
+		$$ = $3
+	}
+
+/********************************************************************
+ * Server Statements
+ * See https://dev.mysql.com/doc/refman/8.0/en/create-server.html
+ *******************************************************************/
+CreateServerStmt:
+	"CREATE" "SERVER" Identifier "FOREIGN" "DATA" "WRAPPER" Identifier "OPTIONS" '(' ServerOptionList ')'
+	{
+		$$ = &ast.CreateServerStmt{
+			Name:    model.NewCIStr($3),
+			Wrapper: model.NewCIStr($7),
+			Options: $10.([]*ast.ServerOption),
+		}
+	}
+
+AlterServerStmt:
+	"ALTER" "SERVER" Identifier "OPTIONS" '(' ServerOptionList ')'
+	{
+		$$ = &ast.AlterServerStmt{
+			Name:    model.NewCIStr($3),
+			Options: $6.([]*ast.ServerOption),
+		}
+	}
+
+DropServerStmt:
+	"DROP" "SERVER" IfExists Identifier
+	{
+		$$ = &ast.DropServerStmt{
+			IfExists: $3.(bool),
+			Name:     model.NewCIStr($4),
+		}
+	}
+
+ServerOptionList:
+	ServerOption
+	{
+		$$ = []*ast.ServerOption{$1.(*ast.ServerOption)}
+	}
+|	ServerOptionList ',' ServerOption
+	{
+		$$ = append($1.([]*ast.ServerOption), $3.(*ast.ServerOption))
+	}
+
+ServerOption:
+	Identifier stringLit
+	{
+		$$ = &ast.ServerOption{
+			Name:  $1,
+			Value: $2,
+		}
+	}
+|	Identifier Int64Num
+	{
+		$$ = &ast.ServerOption{
+			Name:    $1,
+			Value:   strconv.FormatInt($2.(int64), 10),
+			Numeric: true,
+		}
+	}
+|	"DATABASE" stringLit
+	{
+		$$ = &ast.ServerOption{
+			Name:  "DATABASE",
+			Value: $2,
+		}
 	}
 
 /********************************************************************
