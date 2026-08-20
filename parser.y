@@ -154,7 +154,7 @@ import (
 	index             "INDEX"
 	infile            "INFILE"
 	inner             "INNER"
-	arrayType  		  "ARRAY"
+	arrayType         "ARRAY"
 	integerType       "INTEGER"
 	intersect         "INTERSECT"
 	interval          "INTERVAL"
@@ -843,41 +843,41 @@ import (
 
 %token not2
 %type	<expr>
-	Expression                    "expression"
-	MaxValueOrExpression          "maxvalue or expression"
-	BoolPri                       "boolean primary expression"
-	ExprOrDefault                 "expression or default"
-	PredicateExpr                 "Predicate expression factor"
-	SetExpr                       "Set variable statement value's expression"
-	BitExpr                       "bit expression"
-	SimpleExpr                    "simple expression"
-	SimpleIdent                   "Simple Identifier expression"
-	SumExpr                       "aggregate functions"
-	FunctionCallGeneric           "Function call with Identifier"
-	FunctionCallKeyword           "Function call with keyword as function name"
-	FunctionCallNonKeyword        "Function call with nonkeyword as function name"
-	Literal                       "literal value"
-	Variable                      "User or system variable"
-	SystemVariable                "System defined variable name"
-	UserVariable                  "User defined variable name"
-	SubSelect                     "Sub Select"
-	StringLiteral                 "text literal"
-	ExpressionOpt                 "Optional expression"
-	SignedLiteral                 "Literal or NumLiteral with sign"
-	DefaultValueExpr              "DefaultValueExpr(Now or Signed Literal)"
-	NowSymOptionFraction          "NowSym with optional fraction part"
-	CurDateOptionFraction         "CurrDateSym with optional fraction part"
-	CharsetNameOrDefault          "Character set name or default"
-	NextValueForSequence          "Default nextval expression"
-	FunctionNameSequence          "Function with sequence function call"
-	WindowFuncCall                "WINDOW function call"
-	RepeatableOpt                 "Repeatable optional in sample clause"
-	ProcedureCall                 "Procedure call with Identifier or identifier"
-	JSONQuoteExpr                 "JSON quote Expr"
-	JSONArrayExpr                 "JSON array Expr"
-	JSONObjectExpr                "JSON object Expr"
-	JSONValueExpr                 "JSON value Expr"
-    KVPairExpr                    "key value pair Expr"
+	Expression             "expression"
+	MaxValueOrExpression   "maxvalue or expression"
+	BoolPri                "boolean primary expression"
+	ExprOrDefault          "expression or default"
+	PredicateExpr          "Predicate expression factor"
+	SetExpr                "Set variable statement value's expression"
+	BitExpr                "bit expression"
+	SimpleExpr             "simple expression"
+	SimpleIdent            "Simple Identifier expression"
+	SumExpr                "aggregate functions"
+	FunctionCallGeneric    "Function call with Identifier"
+	FunctionCallKeyword    "Function call with keyword as function name"
+	FunctionCallNonKeyword "Function call with nonkeyword as function name"
+	Literal                "literal value"
+	Variable               "User or system variable"
+	SystemVariable         "System defined variable name"
+	UserVariable           "User defined variable name"
+	SubSelect              "Sub Select"
+	StringLiteral          "text literal"
+	ExpressionOpt          "Optional expression"
+	SignedLiteral          "Literal or NumLiteral with sign"
+	DefaultValueExpr       "DefaultValueExpr(Now or Signed Literal)"
+	NowSymOptionFraction   "NowSym with optional fraction part"
+	CurDateOptionFraction  "CurrDateSym with optional fraction part"
+	CharsetNameOrDefault   "Character set name or default"
+	NextValueForSequence   "Default nextval expression"
+	FunctionNameSequence   "Function with sequence function call"
+	WindowFuncCall         "WINDOW function call"
+	RepeatableOpt          "Repeatable optional in sample clause"
+	ProcedureCall          "Procedure call with Identifier or identifier"
+	JSONQuoteExpr          "JSON quote Expr"
+	JSONArrayExpr          "JSON array Expr"
+	JSONObjectExpr         "JSON object Expr"
+	JSONValueExpr          "JSON value Expr"
+	KVPairExpr             "key value pair Expr"
 
 %type	<statement>
 	AdminStmt                  "Check table statement or show ddl statement"
@@ -3559,23 +3559,23 @@ JSONQuoteExpr:
 	{
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_QUOTE"), Args: []ast.ExprNode{ast.NewValueExpr($3, parser.charset, parser.collation)}}
 	}
-| "JSON_QUOTE" '(' "UNDERSCORE_CHARSET" stringLit ')'
-  	{
-  		// See https://dev.mysql.com/doc/refman/5.7/en/charset-literal.html
-  		co, err := charset.GetDefaultCollationLegacy($3)
-  		if err != nil {
-  			yylex.AppendError(ast.ErrUnknownCharacterSet.GenWithStack("Unsupported character introducer: '%-.64s'", $3))
-  			return 1
-  		}
-  		expr := ast.NewValueExpr($4, parser.charset, parser.collation)
-  		tp := expr.GetType()
-  		tp.Charset = $3
-  		tp.Collate = co
-  		if tp.Collate == charset.CollationBin {
-  			tp.Flag |= mysql.BinaryFlag
-  		}
-  		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_QUOTE"), Args: []ast.ExprNode{expr}}
-  	}
+|	"JSON_QUOTE" '(' "UNDERSCORE_CHARSET" stringLit ')'
+	{
+		// See https://dev.mysql.com/doc/refman/5.7/en/charset-literal.html
+		co, err := charset.GetDefaultCollationLegacy($3)
+		if err != nil {
+			yylex.AppendError(ast.ErrUnknownCharacterSet.GenWithStack("Unsupported character introducer: '%-.64s'", $3))
+			return 1
+		}
+		expr := ast.NewValueExpr($4, parser.charset, parser.collation)
+		tp := expr.GetType()
+		tp.Charset = $3
+		tp.Collate = co
+		if tp.Collate == charset.CollationBin {
+			tp.Flag |= mysql.BinaryFlag
+		}
+		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_QUOTE"), Args: []ast.ExprNode{expr}}
+	}
 
 JSONObjectExpr:
 	"JSON_OBJECT" '(' KVPairExpr ')'
@@ -3586,7 +3586,6 @@ JSONObjectExpr:
 	{
 		$$ = &ast.FuncCallExpr{FnName: model.NewCIStr("JSON_OBJECT")}
 	}
-
 
 KVPairExpr:
 	KVPairExpr ',' StringLiteral ',' Expression
@@ -8292,7 +8291,7 @@ CastType:
 		x.Collate = charset.CollationBin
 		$$ = x
 	}
-|  CastType "ARRAY"
+|	CastType "ARRAY"
 	{
 		ctype := $1.(*types.FieldType)
 		x := types.NewFieldType(mysql.TypeArray)
